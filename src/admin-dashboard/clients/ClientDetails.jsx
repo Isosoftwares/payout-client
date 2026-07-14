@@ -20,6 +20,10 @@ import {
   ExclamationTriangleIcon,
   CheckCircleIcon,
   XCircleIcon,
+  CreditCardIcon,
+  CheckBadgeIcon,
+  DevicePhoneMobileIcon,
+  BanknotesIcon,
 } from "@heroicons/react/24/outline";
 import useAuth from "../../hooks/useAuth";
 
@@ -33,6 +37,15 @@ function ClientDetails() {
   // Modal states
   const [showUpdateModal, setShowUpdateModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+
+  const getMethodIcon = (methodType) => {
+    switch (methodType) {
+      case 'mpesa': return <DevicePhoneMobileIcon className="h-6 w-6 text-green-500" />;
+      case 'bank': return <BanknotesIcon className="h-6 w-6 text-blue-500" />;
+      case 'crypto': return <CurrencyDollarIcon className="h-6 w-6 text-purple-500" />;
+      default: return <CreditCardIcon className="h-6 w-6 text-gray-500" />;
+    }
+  };
 
   // Fetch client details
   const getClientDetails = () => {
@@ -409,6 +422,61 @@ function ClientDetails() {
         </div>
 
         <div className="py-8">
+          <div className="bg-white rounded-xl border border-gray-200 p-6 mb-8">
+            <h3 className="text-lg font-semibold text-gray-900 mb-6 flex items-center">
+              <CreditCardIcon className="h-6 w-6 mr-3 text-primary" />
+              Payment Methods
+            </h3>
+            
+            <div className="space-y-4">
+              {(!client?.paymentMethods || client.paymentMethods.length === 0) ? (
+                <div className="text-center py-6 text-gray-500 bg-gray-50 rounded-lg border border-dashed border-gray-300">
+                  No payment methods added by this client yet.
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {client.paymentMethods.map((method) => (
+                    <div key={method._id} className="flex items-start space-x-4 p-4 rounded-lg border border-gray-200 bg-gray-50">
+                      <div className="mt-1">
+                        {getMethodIcon(method.type)}
+                      </div>
+                      <div className="flex-1">
+                        <div className="flex items-center space-x-2">
+                          <h4 className="text-sm font-bold text-gray-900 capitalize">
+                            {method.type === 'mpesa' ? 'M-Pesa' : method.type === 'bank' ? 'Bank Transfer' : 'Crypto Wallet'}
+                          </h4>
+                          {method.isDefault && (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                              <CheckBadgeIcon className="h-3 w-3 mr-1" /> Preferred
+                            </span>
+                          )}
+                        </div>
+                        
+                        <div className="mt-1 text-sm text-gray-600">
+                          {method.type === 'mpesa' && (
+                            <p>{method.details.name} • {method.details.phone}</p>
+                          )}
+                          {method.type === 'bank' && (
+                            <div>
+                              <p>{method.details.bankName} • {method.details.accountNumber}</p>
+                              <p className="text-xs text-gray-500 mt-0.5">{method.details.accountName}</p>
+                            </div>
+                          )}
+                          {method.type === 'crypto' && (
+                            <div>
+                              <p className="font-medium text-gray-700">{method.details.currency} ({method.details.network})</p>
+                              <p className="text-xs text-gray-500 mt-0.5 break-all">{method.details.address}</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
           <div className="bg-white rounded-xl border border-gray-200 p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-6">
               Client Virtual Accounts / Payout Names

@@ -4,6 +4,7 @@ import useAuth from "../../hooks/useAuth";
 import useAxiosPrivate from "../../hooks/useAxiosPrivate";
 import EditProfileModal from "./components/EditProfileModal";
 import ChangePasswordModal from "./components/ChangePasswordModal";
+import PaymentMethodsSection from "./components/PaymentMethodsSection";
 import { toast } from "react-toastify";
 import {
   UserCircleIcon,
@@ -324,7 +325,8 @@ function AdminProfile() {
               </div>
             </div>
 
-          
+            {/* Payment Methods */}
+            <PaymentMethodsSection user={user} />
           </div>
         </div>
 
