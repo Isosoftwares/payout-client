@@ -28,6 +28,7 @@ import ClientDashboard from "./website/dashboard/ClientDashboard";
 import PayoutNames from "./website/payouts/PayoutNames";
 import PayoutRequests from "./website/payouts/PayoutRequests";
 import Transactions from "./website/transactions/Transactions";
+import PaymentMethodsPage from "./website/dashboard/PaymentMethodsPage";
 
 // Admin Pages
 import AdminPayoutNames from "./admin-dashboard/payouts/AdminPayoutNames";
@@ -82,6 +83,7 @@ function App() {
                     <Route path="payout-names" element={<PayoutNames />} />
                     <Route path="payout-requests" element={<PayoutRequests />} />
                     <Route path="transactions" element={<Transactions />} />
+                    <Route path="payment-methods" element={<PaymentMethodsPage />} />
                     <Route path="profile" element={<AdminProfile />} />
                     <Route path="support" element={<ClientSupport />} />
                   </Route>

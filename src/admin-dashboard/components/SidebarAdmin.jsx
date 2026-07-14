@@ -1,5 +1,7 @@
 import React from "react";
 import { NavLink, useLocation } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import useAxiosPrivate from "../../hooks/useAxiosPrivate";
 import {
   HomeIcon,
   DocumentPlusIcon,
@@ -13,8 +15,8 @@ import {
 const navigation = [
   { name: "Dashboard Overview", href: "/dashboard/overview", icon: HomeIcon },
   { name: "Manage Clients", href: "/dashboard/clients", icon: UsersIcon },
-  { name: "Payout Names", href: "/dashboard/payout-names", icon: DocumentPlusIcon },
-  { name: "Payout Requests", href: "/dashboard/payout-requests", icon: ClockIcon },
+  { name: "Payout Names", href: "/dashboard/payout-names", icon: DocumentPlusIcon, key: "payout-names" },
+  { name: "Payout Requests", href: "/dashboard/payout-requests", icon: ClockIcon, key: "payout-requests" },
   { name: "Transactions", href: "/dashboard/transactions", icon: SparklesIcon },
   { name: "Fee Ledger", href: "/dashboard/fee-ledger", icon: SparklesIcon },
   { name: "Profile", href: "/dashboard/profile", icon: UserIcon },
@@ -23,6 +25,31 @@ const navigation = [
 
 const SidebarAdmin = ({ setSideNav, sideNav }) => {
   const location = useLocation();
+  const axios = useAxiosPrivate();
+
+  const { data: accountsData } = useQuery({
+    queryKey: ["virtual-accounts"],
+    queryFn: () => axios.get("/virtual-accounts"),
+    refetchInterval: 10000, // Refetch every 10 seconds
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
+  });
+
+  const { data: requestsData } = useQuery({
+    queryKey: ["payout-requests"],
+    queryFn: () => axios.get("/payout-requests"),
+    refetchInterval: 10000, // Refetch every 10 seconds
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
+  });
+
+  const unattendedPayoutNames = accountsData?.data?.data?.filter(
+    (acc) => acc.status === "pending_bank_details" || acc.status === "pending"
+  ).length || 0;
+
+  const unattendedPayoutRequests = requestsData?.data?.data?.filter(
+    (req) => req.status === "pending"
+  ).length || 0;
 
   const closeSidebar = () => {
     setSideNav(false);
@@ -101,7 +128,19 @@ const SidebarAdmin = ({ setSideNav, sideNav }) => {
                         : "text-neutral-400 group-hover:text-white"
                     }`}
                   />
-                  <span className="truncate font-medium">{item.name}</span>
+                  <span className="truncate font-medium flex-1">{item.name}</span>
+
+                  {/* Badges for unattended items */}
+                  {item.key === "payout-names" && unattendedPayoutNames > 0 && (
+                    <span className="bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full shadow-sm mr-2 z-10">
+                      {unattendedPayoutNames}
+                    </span>
+                  )}
+                  {item.key === "payout-requests" && unattendedPayoutRequests > 0 && (
+                    <span className="bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full shadow-sm mr-2 z-10">
+                      {unattendedPayoutRequests}
+                    </span>
+                  )}
 
                   {/* Active indicator */}
                   {isActive && (

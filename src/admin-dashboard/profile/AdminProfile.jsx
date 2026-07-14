@@ -325,8 +325,6 @@ function AdminProfile() {
               </div>
             </div>
 
-            {/* Payment Methods */}
-            <PaymentMethodsSection user={user} />
           </div>
         </div>
 

@@ -18,6 +18,7 @@ const navigation = [
   { name: "Payout Names", href: "/client/payout-names", icon: DocumentTextIcon },
   { name: "Payout Requests", href: "/client/payout-requests", icon: ClockIcon },
   { name: "Transactions", href: "/client/transactions", icon: CreditCardIcon },
+  { name: "Payment Methods", href: "/client/payment-methods", icon: CreditCardIcon },
   { name: "Profile", href: "/client/profile", icon: UserIcon },
   { name: "Support", href: "/client/support", icon: UserIcon },
 ];
