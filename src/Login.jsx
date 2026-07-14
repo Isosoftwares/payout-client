@@ -229,18 +229,7 @@ function Login() {
                     )}
                   </div>
 
-                  {/* Forgot Password Link */}
-                  <div className="text-right">
-                    <Link
-                      to="/signup"
-                      className="text-sm font-medium transition-colors duration-300"
-                      style={{ color: "#3264ff" }}
-                      onMouseEnter={(e) => (e.target.style.color = "#2451cc")}
-                      onMouseLeave={(e) => (e.target.style.color = "#3264ff")}
-                    >
-                      Create account?
-                    </Link>
-                  </div>
+                 
 
                   {/* Submit Button */}
                   <button

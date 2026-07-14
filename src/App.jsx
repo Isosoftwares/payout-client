@@ -69,7 +69,7 @@ function App() {
             <Route path="/unauthorized" element={<Unauthorized />} />
             <Route path="/login" element={<Login />} />
             <Route path="/" element={<Login />} />
-            <Route path="/signup" element={<SignUp />} />
+            {/* <Route path="/signup" element={<SignUp />} /> */}
 
             <Route element={<PersistLogin />}>
               <Route path="/change-password" element={<ChangePassword />} />
