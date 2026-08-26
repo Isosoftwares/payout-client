@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import useAxiosPrivate from "../../hooks/useAxiosPrivate";
 import { toast } from "react-toastify";
 import UpdateUserModal from "./UpdateUserModal";
@@ -37,6 +37,47 @@ function ClientDetails() {
   // Modal states
   const [showUpdateModal, setShowUpdateModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showAssignModal, setShowAssignModal] = useState(false);
+  const [showUnassignModal, setShowUnassignModal] = useState(false);
+  const [assignCount, setAssignCount] = useState(1);
+  const [unassignCount, setUnassignCount] = useState(1);
+  const queryClient = useQueryClient();
+
+  const { mutate: assignNames, isPending: isAssigning } = useMutation({
+    mutationFn: (data) => axios.post('/payout-names/assign', data),
+    onSuccess: () => {
+      toast.success('Names successfully assigned to client');
+      queryClient.invalidateQueries(["payout-names", _id]);
+      setShowAssignModal(false);
+      setAssignCount(1);
+    },
+    onError: (err) => {
+      toast.error(err?.response?.data?.message || 'Failed to assign names');
+    },
+  });
+
+  const { mutate: unassignNames, isPending: isUnassigning } = useMutation({
+    mutationFn: (data) => axios.post('/payout-names/unassign', data),
+    onSuccess: () => {
+      toast.success('Names successfully unallocated from client');
+      queryClient.invalidateQueries(["payout-names", _id]);
+      setShowUnassignModal(false);
+      setUnassignCount(1);
+    },
+    onError: (err) => {
+      toast.error(err?.response?.data?.message || 'Failed to unallocate names');
+    },
+  });
+
+  const handleAssignNames = (e) => {
+    e.preventDefault();
+    assignNames({ clientId: _id, count: assignCount });
+  };
+
+  const handleUnassignNames = (e) => {
+    e.preventDefault();
+    unassignNames({ clientId: _id, count: unassignCount });
+  };
 
   const getMethodIcon = (methodType) => {
     switch (methodType) {
@@ -75,36 +116,39 @@ function ClientDetails() {
 
   const { data: accountsData, isLoading: loadingAccounts } = useQuery({
     queryKey: ["virtual-accounts", _id],
-    queryFn: () => axios.get("/virtual-accounts"),
+    queryFn: () => axios.get("/virtual-accounts?limit=1000"),
+  });
+
+  const { data: payoutNamesData } = useQuery({
+    queryKey: ["payout-names", _id],
+    queryFn: () => axios.get(`/payout-names?limit=1000&allocatedTo=${_id}`),
   });
 
   const { data: txData } = useQuery({
     queryKey: ["transactions"],
-    queryFn: () => axios.get("/transactions"),
+    queryFn: () => axios.get("/transactions?limit=1000"),
   });
 
   const virtualAccounts =
-    accountsData?.data?.data?.filter(
+    accountsData?.data?.data?.data?.filter(
       (acc) => acc?.client?._id === _id || acc?.client === _id
     ) || [];
 
-  const clientTransactions = txData?.data?.data?.filter(
+  const clientTransactions = txData?.data?.data?.data?.filter(
     (tx) => tx?.client === _id || tx?.client?._id === _id
   ) || [];
 
-  const totalGross = clientTransactions
-    .filter(tx => tx.type === 'deposit')
-    .reduce((sum, tx) => sum + tx.grossAmount, 0);
+  const totalReceived = client?.totalReceivedUSD || 0;
+  const totalMatured = client?.totalMaturedUSD || 0;
+  const totalPaid = client?.totalPaidUSD || 0;
+  const totalFees = client?.totalFeesUSD || 0;
+  const totalUnpaid = totalReceived + totalMatured;
+  const totalGross = totalUnpaid + totalPaid;
 
-  const totalCut = clientTransactions
-    .filter(tx => tx.type === 'deposit')
-    .reduce((sum, tx) => sum + tx.feeAmount, 0);
-
-  const totalPaid = clientTransactions
-    .filter(tx => tx.type === 'payout')
-    .reduce((sum, tx) => sum + tx.grossAmount, 0);
-
-  const totalUnpaid = virtualAccounts.reduce((sum, acc) => sum + (acc.withdrawableBalance || 0), 0);
+  const clientPayoutNames = payoutNamesData?.data?.data || [];
+  const allocatedUnclaimedCount = clientPayoutNames.filter(pn => pn.status === 'allocated').length;
+  const claimedCount = clientPayoutNames.filter(pn => pn.status === 'claimed').length;
+  const totalAssigned = clientPayoutNames.length;
 
   if (isLoading) {
     return (
@@ -185,13 +229,6 @@ function ClientDetails() {
                 <PencilIcon className="h-4 w-4 mr-2" />
                 Edit
               </button>
-              {/* <button
-                onClick={() => setShowDeleteModal(true)}
-                className="inline-flex items-center px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-medium rounded-lg transition-all duration-200"
-              >
-                <TrashIcon className="h-4 w-4 mr-2" />
-                Delete
-              </button> */}
             </div>
           </div>
         </div>
@@ -245,10 +282,38 @@ function ClientDetails() {
                       </div>
                     </div>
                   </div>
+
+                  <div className="flex items-center space-x-3">
+                    <CurrencyDollarIcon className="h-5 w-5 text-gray-400" />
+                    <div>
+                      <div className="text-sm font-medium text-gray-500">
+                        USD Buy/Sell Price
+                      </div>
+                      <div className="text-gray-900">
+                        <span className="text-green-600 font-medium">Buy: Ksh {client?.usdBuyPrice || 0}</span>
+                        <span className="mx-2 text-gray-300">|</span>
+                        <span className="text-blue-600 font-medium">Sell: Ksh {client?.usdSellPrice || 0}</span>
+                      </div>
+                    </div>
+                  </div>
                 </div>
 
                 <div className="space-y-4">
-                 
+                  <div className="flex items-center space-x-3">
+                    <UserCircleIcon className="h-5 w-5 text-gray-400" />
+                    <div>
+                      <div className="text-sm font-medium text-gray-500">
+                        Added By
+                      </div>
+                      <div className="text-gray-900">
+                        {client?.createdBy
+                          ? (client.createdBy.profile?.firstName
+                              ? `${client.createdBy.profile.firstName} ${client.createdBy.profile.lastName || ''}`
+                              : client.createdBy.email)
+                          : "System / Self-registered"}
+                      </div>
+                    </div>
+                  </div>
 
                   <div className="flex items-center space-x-3">
                     <CalendarDaysIcon className="h-5 w-5 text-gray-400" />
@@ -325,7 +390,7 @@ function ClientDetails() {
                 </div>
                 <div className="text-center">
                   <div className="text-2xl font-bold text-red-600">
-                    ${totalCut.toFixed(2)}
+                    ${totalFees.toFixed(2)}
                   </div>
                   <div className="text-sm text-gray-500 mt-1">
                     The Cut (Fees)
@@ -340,11 +405,11 @@ function ClientDetails() {
                   </div>
                 </div>
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-blue-600">
-                    ${totalUnpaid.toFixed(2)}
+                  <div className="text-2xl font-bold text-purple-600">
+                    ${(client?.totalProfitUSD || 0).toFixed(2)}
                   </div>
                   <div className="text-sm text-gray-500 mt-1">
-                    Unpaid Balance
+                    Total Profit Generated
                   </div>
                 </div>
               </div>
@@ -391,6 +456,24 @@ function ClientDetails() {
                   </span>
                 </div>
               </div>
+              
+              <h3 className="text-sm font-semibold text-gray-900 mt-6 mb-4">
+                Payout Names Inventory
+              </h3>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between p-2 text-sm">
+                  <span className="text-gray-600">Total Assigned</span>
+                  <span className="font-semibold text-gray-900">{totalAssigned}</span>
+                </div>
+                <div className="flex items-center justify-between p-2 text-sm">
+                  <span className="text-gray-600">Allocated (Unclaimed)</span>
+                  <span className="font-semibold text-yellow-600">{allocatedUnclaimedCount}</span>
+                </div>
+                <div className="flex items-center justify-between p-2 text-sm">
+                  <span className="text-gray-600">Claimed & Active</span>
+                  <span className="font-semibold text-green-600">{claimedCount}</span>
+                </div>
+              </div>
             </div>
 
             {/* Quick Actions */}
@@ -400,6 +483,22 @@ function ClientDetails() {
               </h3>
 
               <div className="space-y-3">
+
+                <button
+                  onClick={() => setShowAssignModal(true)}
+                  className="w-full flex items-center justify-center px-4 py-3 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg transition-all duration-200"
+                >
+                  <PlusIcon className="h-5 w-5 mr-2" />
+                  Assign Payout Names
+                </button>
+
+                <button
+                  onClick={() => setShowUnassignModal(true)}
+                  className="w-full flex items-center justify-center px-4 py-3 bg-yellow-600 hover:bg-yellow-700 text-white font-medium rounded-lg transition-all duration-200"
+                >
+                  <ArrowLeftIcon className="h-5 w-5 mr-2" />
+                  Unassign Payout Names
+                </button>
 
                 <button
                   onClick={() => setShowUpdateModal(true)}
@@ -454,12 +553,12 @@ function ClientDetails() {
                         
                         <div className="mt-1 text-sm text-gray-600">
                           {method.type === 'mpesa' && (
-                            <p>{method.details.name} • {method.details.phone}</p>
+                            <p>{method.details.name} • {method.details.phone} • <span className="font-semibold text-gray-700">KES</span></p>
                           )}
                           {method.type === 'bank' && (
                             <div>
                               <p>{method.details.bankName} • {method.details.accountNumber}</p>
-                              <p className="text-xs text-gray-500 mt-0.5">{method.details.accountName}</p>
+                              <p className="text-xs text-gray-500 mt-0.5">{method.details.accountName} • <span className="font-semibold text-gray-700">{method.details.bankCurrency || 'KES'}</span></p>
                             </div>
                           )}
                           {method.type === 'crypto' && (
@@ -479,47 +578,41 @@ function ClientDetails() {
 
           <div className="bg-white rounded-xl border border-gray-200 p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-6">
-              Client Virtual Accounts / Payout Names
+              Client Payout Names Inventory
             </h3>
-            {loadingAccounts ? (
-              <p className="text-gray-500">Loading accounts...</p>
-            ) : virtualAccounts.length === 0 ? (
-              <p className="text-gray-500">No virtual accounts created by this client yet.</p>
+            {clientPayoutNames.length === 0 ? (
+              <p className="text-gray-500">No payout names allocated to this client yet.</p>
             ) : (
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto max-h-[500px]">
                 <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
+                  <thead className="bg-gray-50 sticky top-0">
                     <tr>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Gross Balance</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Withdrawable Net</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Account Number</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment Status</th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {virtualAccounts.map((acc) => (
-                      <tr key={acc._id}>
+                    {clientPayoutNames.map((pn) => (
+                      <tr key={pn._id} className="hover:bg-gray-50">
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm font-medium text-gray-900">
-                            {acc.firstName} {acc.lastName}
-                          </div>
-                          <div className="text-sm text-gray-500">{acc.identifier || "-"}</div>
+                          <div className="text-sm font-medium text-gray-900">{pn.name}</div>
+                          <div className="text-xs text-gray-500">{pn.status === 'claimed' ? 'Claimed' : 'Unclaimed'}</div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                          ${(acc.withdrawableBalance <= 0 ? 0 : acc.balance || 0).toFixed(2)}
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 font-mono">
+                          {pn.accountNumber}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-green-600">
-                          ${(acc.withdrawableBalance || 0).toFixed(2)}
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
+                          ${(pn.amount || 0).toFixed(2)}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <span
-                            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                              acc.status === "active"
-                                ? "bg-green-100 text-green-800"
-                                : "bg-yellow-100 text-yellow-800"
-                            }`}
-                          >
-                            {acc.status === "active" ? "Active" : "Pending Details"}
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium capitalize ${
+                            pn.paymentStatus === 'paid' ? 'bg-green-100 text-green-800' :
+                            pn.paymentStatus === 'matured' ? 'bg-yellow-100 text-yellow-800' :
+                            'bg-gray-100 text-gray-800'
+                          }`}>
+                            {pn.paymentStatus || 'received'}
                           </span>
                         </td>
                       </tr>
@@ -544,6 +637,120 @@ function ClientDetails() {
         onClose={() => setShowDeleteModal(false)}
         client={client}
       />
+
+      {/* Assign Names Modal */}
+      {showAssignModal && (
+        <div className="fixed inset-0 z-50 overflow-y-auto">
+          <div className="flex min-h-screen items-center justify-center p-4 text-center sm:p-0">
+            <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" onClick={() => setShowAssignModal(false)}></div>
+            <div className="relative transform overflow-hidden rounded-lg bg-white text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-lg">
+              <form onSubmit={handleAssignNames}>
+                <div className="bg-white px-4 pb-4 pt-5 sm:p-6 sm:pb-4">
+                  <div className="sm:flex sm:items-start">
+                    <div className="mx-auto flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-green-100 sm:mx-0 sm:h-10 sm:w-10">
+                      <PlusIcon className="h-6 w-6 text-green-600" aria-hidden="true" />
+                    </div>
+                    <div className="mt-3 text-center sm:ml-4 sm:mt-0 sm:text-left w-full">
+                      <h3 className="text-base font-semibold leading-6 text-gray-900">Assign Payout Names</h3>
+                      <div className="mt-2">
+                        <p className="text-sm text-gray-500 mb-4">
+                          Directly allocate a specified number of payout names to this client without a request.
+                        </p>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700">
+                            Number of Names to Assign
+                          </label>
+                          <input
+                            type="number"
+                            min="1"
+                            value={assignCount}
+                            onChange={(e) => setAssignCount(parseInt(e.target.value))}
+                            className="mt-1 block w-full rounded-md border border-gray-300 py-2 px-3 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 sm:text-sm"
+                            required
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div className="bg-gray-50 px-4 py-3 sm:flex sm:flex-row-reverse sm:px-6">
+                  <button
+                    type="submit"
+                    disabled={isAssigning}
+                    className="inline-flex w-full justify-center rounded-md bg-green-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-green-500 disabled:opacity-50 sm:ml-3 sm:w-auto"
+                  >
+                    {isAssigning ? 'Assigning...' : 'Confirm Assignment'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowAssignModal(false)}
+                    className="mt-3 inline-flex w-full justify-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 sm:mt-0 sm:w-auto"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Unassign Names Modal */}
+      {showUnassignModal && (
+        <div className="fixed inset-0 z-50 overflow-y-auto">
+          <div className="flex min-h-screen items-center justify-center p-4 text-center sm:p-0">
+            <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" onClick={() => setShowUnassignModal(false)}></div>
+            <div className="relative transform overflow-hidden rounded-lg bg-white text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-lg">
+              <form onSubmit={handleUnassignNames}>
+                <div className="bg-white px-4 pb-4 pt-5 sm:p-6 sm:pb-4">
+                  <div className="sm:flex sm:items-start">
+                    <div className="mx-auto flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-yellow-100 sm:mx-0 sm:h-10 sm:w-10">
+                      <ArrowLeftIcon className="h-6 w-6 text-yellow-600" aria-hidden="true" />
+                    </div>
+                    <div className="mt-3 text-center sm:ml-4 sm:mt-0 sm:text-left w-full">
+                      <h3 className="text-base font-semibold leading-6 text-gray-900">Unassign Payout Names</h3>
+                      <div className="mt-2">
+                        <p className="text-sm text-gray-500 mb-4">
+                          Return a specific number of unused (un-claimed) payout names back to the general pool from this client.
+                        </p>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700">
+                            Number of Names to Unassign
+                          </label>
+                          <input
+                            type="number"
+                            min="1"
+                            value={unassignCount}
+                            onChange={(e) => setUnassignCount(parseInt(e.target.value))}
+                            className="mt-1 block w-full rounded-md border border-gray-300 py-2 px-3 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 sm:text-sm"
+                            required
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div className="bg-gray-50 px-4 py-3 sm:flex sm:flex-row-reverse sm:px-6">
+                  <button
+                    type="submit"
+                    disabled={isUnassigning}
+                    className="inline-flex w-full justify-center rounded-md bg-yellow-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-yellow-500 disabled:opacity-50 sm:ml-3 sm:w-auto"
+                  >
+                    {isUnassigning ? 'Unassigning...' : 'Confirm Unassignment'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowUnassignModal(false)}
+                    className="mt-3 inline-flex w-full justify-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 sm:mt-0 sm:w-auto"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

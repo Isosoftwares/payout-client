@@ -12,7 +12,7 @@ export default function PayoutRequests() {
 
   const { data: accountsData } = useQuery({
     queryKey: ['client-virtual-accounts'],
-    queryFn: () => axios.get('/virtual-accounts'),
+    queryFn: () => axios.get('/virtual-accounts?limit=100'), // Get all for dropdown
   });
 
   const { data: requestsData, isLoading } = useQuery({
@@ -20,7 +20,7 @@ export default function PayoutRequests() {
     queryFn: () => axios.get('/transactions/payout-requests'),
   });
 
-  const accounts = accountsData?.data?.data?.filter(a => a.status === 'active') || [];
+  const accounts = accountsData?.data?.data?.data?.filter(a => a.status === 'active') || [];
   const requests = requestsData?.data?.data || [];
 
   const { mutate: requestPayout, isPending } = useMutation({

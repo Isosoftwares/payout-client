@@ -16,9 +16,9 @@ import {
 const navigation = [
   { name: "Dashboard", href: "/client", icon: MagnifyingGlassIcon },
   { name: "Payout Names", href: "/client/payout-names", icon: DocumentTextIcon },
-  { name: "Payout Requests", href: "/client/payout-requests", icon: ClockIcon },
   { name: "Transactions", href: "/client/transactions", icon: CreditCardIcon },
   { name: "Payment Methods", href: "/client/payment-methods", icon: CreditCardIcon },
+  { name: "Subaccounts", href: "/client/subaccounts", icon: UserIcon },
   { name: "Profile", href: "/client/profile", icon: UserIcon },
   { name: "Support", href: "/client/support", icon: UserIcon },
 ];

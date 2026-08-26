@@ -20,6 +20,8 @@ function UpdateUserModal({ isOpen, onClose, client }) {
       role: client?.role || "client",
       isActive: client?.isActive ?? true,
       feePercentage: client?.feePercentage || 0,
+      usdBuyPrice: client?.usdBuyPrice || 0,
+      usdSellPrice: client?.usdSellPrice || 0,
       profile: {
         firstName: client?.profile?.firstName || "",
         lastName: client?.profile?.lastName || "",
@@ -59,6 +61,8 @@ function UpdateUserModal({ isOpen, onClose, client }) {
         role: data?.role,
         isActive: data?.isActive,
         feePercentage: Number(data?.feePercentage) || 0,
+        usdBuyPrice: Number(data?.usdBuyPrice) || 0,
+        usdSellPrice: Number(data?.usdSellPrice) || 0,
       };
 
       // Only include profile if at least one field has a value
@@ -157,7 +161,7 @@ function UpdateUserModal({ isOpen, onClose, client }) {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center mt-4">
               <div>
                 <label className="flex items-center space-x-3 mt-4">
                   <input
@@ -193,6 +197,58 @@ function UpdateUserModal({ isOpen, onClose, client }) {
                   <div className="mt-2 flex items-center text-sm text-red-600">
                     <ExclamationCircleIcon className="h-4 w-4 mr-1" />
                     {errors.feePercentage.message}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  USD Buy Price
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  {...register("usdBuyPrice", {
+                    valueAsNumber: true,
+                    min: { value: 0, message: "Cannot be less than 0" }
+                  })}
+                  className={`w-full px-4 py-3 border rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-200 ${
+                    errors?.usdBuyPrice ? "border-red-300" : "border-gray-300"
+                  }`}
+                  placeholder="e.g. 130.50"
+                />
+                {errors?.usdBuyPrice && (
+                  <div className="mt-2 flex items-center text-sm text-red-600">
+                    <ExclamationCircleIcon className="h-4 w-4 mr-1" />
+                    {errors.usdBuyPrice.message}
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  USD Sell Price
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  {...register("usdSellPrice", {
+                    valueAsNumber: true,
+                    min: { value: 0, message: "Cannot be less than 0" }
+                  })}
+                  className={`w-full px-4 py-3 border rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-200 ${
+                    errors?.usdSellPrice ? "border-red-300" : "border-gray-300"
+                  }`}
+                  placeholder="e.g. 135.00"
+                />
+                {errors?.usdSellPrice && (
+                  <div className="mt-2 flex items-center text-sm text-red-600">
+                    <ExclamationCircleIcon className="h-4 w-4 mr-1" />
+                    {errors.usdSellPrice.message}
                   </div>
                 )}
               </div>

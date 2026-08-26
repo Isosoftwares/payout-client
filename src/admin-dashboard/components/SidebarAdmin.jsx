@@ -16,8 +16,10 @@ const navigation = [
   { name: "Dashboard Overview", href: "/dashboard/overview", icon: HomeIcon },
   { name: "Manage Clients", href: "/dashboard/clients", icon: UsersIcon },
   { name: "Payout Names", href: "/dashboard/payout-names", icon: DocumentPlusIcon, key: "payout-names" },
-  { name: "Payout Requests", href: "/dashboard/payout-requests", icon: ClockIcon, key: "payout-requests" },
-  { name: "Transactions", href: "/dashboard/transactions", icon: SparklesIcon },
+  { name: "Allocation Requests", href: "/dashboard/allocation-requests", icon: DocumentPlusIcon, key: "allocation-requests" },
+  { name: "Payments", href: "/dashboard/payments", icon: SparklesIcon },
+  // { name: "Transactions", href: "/dashboard/transactions", icon: SparklesIcon },
+  { name: "Process Payouts", href: "/dashboard/process-payouts", icon: SparklesIcon },
   { name: "Fee Ledger", href: "/dashboard/fee-ledger", icon: SparklesIcon },
   { name: "Profile", href: "/dashboard/profile", icon: UserIcon },
   { name: "Support", href: "/dashboard/supports", icon: UserIcon },
@@ -30,7 +32,7 @@ const SidebarAdmin = ({ setSideNav, sideNav }) => {
   const { data: accountsData } = useQuery({
     queryKey: ["virtual-accounts"],
     queryFn: () => axios.get("/virtual-accounts"),
-    refetchInterval: 10000, // Refetch every 10 seconds
+    refetchInterval: 10000,
     refetchOnMount: true,
     refetchOnWindowFocus: true,
   });
@@ -38,18 +40,28 @@ const SidebarAdmin = ({ setSideNav, sideNav }) => {
   const { data: requestsData } = useQuery({
     queryKey: ["payout-requests"],
     queryFn: () => axios.get("/payout-requests"),
-    refetchInterval: 10000, // Refetch every 10 seconds
+    refetchInterval: 10000,
     refetchOnMount: true,
     refetchOnWindowFocus: true,
   });
 
-  const unattendedPayoutNames = accountsData?.data?.data?.filter(
+  const { data: allocationRequestsData } = useQuery({
+    queryKey: ["admin-allocation-requests-polling"],
+    queryFn: () => axios.get("/payout-names/requests?status=pending"),
+    refetchInterval: 10000,
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
+  });
+
+  const unattendedPayoutNames = accountsData?.data?.data?.data?.filter(
     (acc) => acc.status === "pending_bank_details" || acc.status === "pending"
   ).length || 0;
 
   const unattendedPayoutRequests = requestsData?.data?.data?.filter(
     (req) => req.status === "pending"
   ).length || 0;
+
+  const unattendedAllocationRequests = allocationRequestsData?.data?.total || 0;
 
   const closeSidebar = () => {
     setSideNav(false);
@@ -134,6 +146,11 @@ const SidebarAdmin = ({ setSideNav, sideNav }) => {
                   {item.key === "payout-names" && unattendedPayoutNames > 0 && (
                     <span className="bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full shadow-sm mr-2 z-10">
                       {unattendedPayoutNames}
+                    </span>
+                  )}
+                  {item.key === "allocation-requests" && unattendedAllocationRequests > 0 && (
+                    <span className="bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full shadow-sm mr-2 z-10">
+                      {unattendedAllocationRequests}
                     </span>
                   )}
                   {item.key === "payout-requests" && unattendedPayoutRequests > 0 && (

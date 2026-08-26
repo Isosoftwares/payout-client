@@ -13,11 +13,11 @@ export default function AdminPayoutRequests() {
 
   const { data: requestsData, isLoading } = useQuery({
     queryKey: ['admin-payout-requests'],
-    queryFn: () => axios.get('/transactions/payout-requests'),
+    queryFn: () => axios.get('/transactions/payout-requests?limit=100'),
     onError: (err) => toast.error('Failed to load requests'),
   });
 
-  const requests = requestsData?.data?.data || [];
+  const requests = requestsData?.data?.data?.data || [];
 
   const { mutate: updateRequest, isPending: isUpdating } = useMutation({
     mutationFn: (data) => axios.put(`/transactions/payout-requests/${selectedRequest._id}`, data),

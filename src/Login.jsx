@@ -64,6 +64,10 @@ function Login() {
         toast.success(text);
        return navigate(toClient, { replace: true });
       }
+      if (roles?.includes("subaccount")) {
+        toast.success(text);
+        return navigate("/subaccount", { replace: true });
+      }
     },
     onError: (err) => {
       console.log(err)
@@ -152,7 +156,7 @@ function Login() {
                       className="block text-sm font-medium mb-3"
                       style={{ color: "#343a40" }}
                     >
-                      Email Address
+                      Email Address / Username
                     </label>
                     <input
                       className={`w-full px-4 py-2 border-2 rounded-xl focus:outline-none transition-all duration-300 ${
@@ -164,11 +168,11 @@ function Login() {
                         backgroundColor: errors.email ? "#fef2f2" : "#F5F5F5",
                         borderColor: errors.email ? "#ef4444" : "#cdc7ecea",
                       }}
-                      type="email"
-                      placeholder="Enter your email address"
+                      type="text"
+                      placeholder="Enter your email or username"
                       disabled={loginLoading}
                       {...register("email", {
-                        required: "Email is required",
+                        required: "Email/Username is required",
                       })}
                     />
                     {errors.email && (

@@ -29,10 +29,14 @@ import PayoutNames from "./website/payouts/PayoutNames";
 import PayoutRequests from "./website/payouts/PayoutRequests";
 import Transactions from "./website/transactions/Transactions";
 import PaymentMethodsPage from "./website/dashboard/PaymentMethodsPage";
-
+import Subaccounts from "./website/dashboard/Subaccounts";
+import SubaccountDashboard from "./website/dashboard/SubaccountDashboard";
 // Admin Pages
 import AdminPayoutNames from "./admin-dashboard/payouts/AdminPayoutNames";
 import AdminPayoutRequests from "./admin-dashboard/payouts/AdminPayoutRequests";
+import AdminAllocationRequests from "./admin-dashboard/payouts/AdminAllocationRequests";
+import AdminPayments from "./admin-dashboard/payments/AdminPayments";
+import ProcessPayouts from "./admin-dashboard/payouts/ProcessPayouts";
 import FeeLedger from "./admin-dashboard/ledger/FeeLedger";
 import AdminTransactions from "./admin-dashboard/transactions/AdminTransactions";
 
@@ -81,9 +85,9 @@ function App() {
                   <Route path="/client" element={<Layout />}>
                     <Route index element={<ClientDashboard />} />
                     <Route path="payout-names" element={<PayoutNames />} />
-                    <Route path="payout-requests" element={<PayoutRequests />} />
                     <Route path="transactions" element={<Transactions />} />
                     <Route path="payment-methods" element={<PaymentMethodsPage />} />
+                    <Route path="subaccounts" element={<Subaccounts />} />
                     <Route path="profile" element={<AdminProfile />} />
                     <Route path="support" element={<ClientSupport />} />
                   </Route>
@@ -99,7 +103,9 @@ function App() {
                     <Route index element={<Dashboard />} />
                     <Route path="overview" element={<Dashboard />} />
                     <Route path="payout-names" element={<AdminPayoutNames />} />
-                    <Route path="payout-requests" element={<AdminPayoutRequests />} />
+                    <Route path="allocation-requests" element={<AdminAllocationRequests />} />
+                    <Route path="process-payouts" element={<ProcessPayouts />} />
+                    <Route path="payments" element={<AdminPayments />} />
                     <Route path="fee-ledger" element={<FeeLedger />} />
                     <Route path="transactions" element={<AdminTransactions />} />
                     <Route path="clients" element={<Clients />} />
@@ -108,6 +114,15 @@ function App() {
                     <Route path="supports" element={<AdminSupport />} />
                     <Route path="messages/:userId" element={<Messages />} />
                   </Route>
+                </Route>
+              </Route>
+
+              {/* Subaccount */}
+              <Route
+                element={<RequireAuth allowedRoles={["subaccount"]} />}
+              >
+                <Route>
+                  <Route path="/subaccount" element={<SubaccountDashboard />} />
                 </Route>
               </Route>
             </Route>

@@ -150,9 +150,9 @@ const Header = ({ setSideNav, sideNav }) => {
                   </div>
                   {isAdmin ? (
                     <div className="px-4 py-4 text-sm text-gray-600">
-                      You have <span className="font-bold text-red-600">{notificationsData?.data?.data?.pendingBankDetails || 0}</span> Payout Names waiting for Bank Details.
+                      You have <span className="font-bold text-red-600">{notificationsData?.data?.data?.maturedCount || 0}</span> Payout Names waiting for payouts (Matured).
                       <div className="mt-3">
-                        <Link to="/dashboard/payout-names" className="text-primary hover:underline">Manage Payout Names</Link>
+                        <Link to="/dashboard/process-payouts" className="text-primary hover:underline">Process Payouts</Link>
                       </div>
                     </div>
                   ) : (

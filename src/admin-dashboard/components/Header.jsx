@@ -55,7 +55,7 @@ const Header = ({ setSideNav, sideNav }) => {
     refetchInterval: 10000,
   });
 
-  const pendingCount = notificationsData?.data?.data?.pendingBankDetails || 0;
+  const pendingCount = notificationsData?.data?.data?.maturedCount || 0;
 
   return (
     <header className="bg-white shadow-soft border-b border-neutral-200">
@@ -129,9 +129,9 @@ const Header = ({ setSideNav, sideNav }) => {
                     <h3 className="text-sm font-semibold text-gray-900">Notifications</h3>
                   </div>
                   <div className="px-4 py-4 text-sm text-gray-600">
-                    You have <span className="font-bold text-red-600">{pendingCount}</span> Payout Names waiting for Bank Details.
+                    You have <span className="font-bold text-red-600">{pendingCount}</span> Payout Names waiting for payouts (Matured).
                     <div className="mt-3">
-                      <Link to="/dashboard/payout-names" state={{ filter: 'pending_bank_details' }} className="text-primary hover:underline">Manage Payout Names</Link>
+                      <Link to="/dashboard/process-payouts" className="text-primary hover:underline">Process Payouts</Link>
                     </div>
                   </div>
                 </Menu.Items>

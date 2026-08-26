@@ -115,7 +115,7 @@ export default function PaymentMethodsSection({ user }) {
     switch (methodType) {
       case 'mpesa': return <DevicePhoneMobileIcon className="h-6 w-6 text-green-500" />;
       case 'bank': return <BanknotesIcon className="h-6 w-6 text-blue-500" />;
-      case 'crypto': return <CurrencyDollarIcon className="h-6 w-6 text-purple-500" />;
+      // case 'crypto': return <CurrencyDollarIcon className="h-6 w-6 text-purple-500" />;
       default: return <CreditCardIcon className="h-6 w-6 text-gray-500" />;
     }
   };
@@ -157,7 +157,7 @@ export default function PaymentMethodsSection({ user }) {
               >
                 <option value="mpesa">M-Pesa</option>
                 <option value="bank">Bank Transfer</option>
-                <option value="crypto">Cryptocurrency</option>
+                {/* <option value="crypto">Cryptocurrency</option> */}
               </select>
             </div>
 
@@ -229,6 +229,20 @@ export default function PaymentMethodsSection({ user }) {
                   />
                 </div>
                 <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Account Currency</label>
+                  <select
+                    name="bankCurrency"
+                    required
+                    value={details.bankCurrency || ''}
+                    onChange={handleDetailChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                  >
+                    <option value="">Select Currency</option>
+                    <option value="KES">KES</option>
+                    <option value="USD">USD</option>
+                  </select>
+                </div>
+                <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Branch Code / SWIFT</label>
                   <input
                     type="text"
@@ -242,7 +256,7 @@ export default function PaymentMethodsSection({ user }) {
               </div>
             )}
 
-            {type === 'crypto' && (
+            {/* type === 'crypto' && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Currency</label>
@@ -295,7 +309,7 @@ export default function PaymentMethodsSection({ user }) {
                   />
                 </div>
               </div>
-            )}
+            ) */}
 
             <div className="flex justify-end space-x-3 mt-4 pt-4 border-t border-gray-200">
               <button
@@ -344,12 +358,12 @@ export default function PaymentMethodsSection({ user }) {
                   
                   <div className="mt-1 text-sm text-gray-600">
                     {method.type === 'mpesa' && (
-                      <p>{method.details.name} • {method.details.phone}</p>
+                      <p>{method.details.name} • {method.details.phone} • <span className="font-semibold text-gray-700">KES</span></p>
                     )}
                     {method.type === 'bank' && (
                       <div>
                         <p>{method.details.bankName} • {method.details.accountNumber}</p>
-                        <p className="text-xs text-gray-500 mt-0.5">{method.details.accountName}</p>
+                        <p className="text-xs text-gray-500 mt-0.5">{method.details.accountName} • <span className="font-semibold text-gray-700">{method.details.bankCurrency || 'KES'}</span></p>
                       </div>
                     )}
                     {method.type === 'crypto' && (

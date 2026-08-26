@@ -25,22 +25,24 @@ export default function DashboardOverview() {
     queryFn: () => axios.get('/users'),
   });
 
-  const { data: accountsData, isLoading: isLoadingAccounts } = useQuery({
-    queryKey: ['admin-virtual-accounts'],
-    queryFn: () => axios.get('/virtual-accounts'),
-  });
+
 
   const { data: txData, isLoading: isLoadingTx } = useQuery({
-    queryKey: ['admin-transactions'],
-    queryFn: () => axios.get('/transactions'),
+    queryKey: ['admin-transactions-log'],
+    queryFn: () => axios.get('/batch-payouts/transactions'),
   });
 
-  const { data: requestsData, isLoading: isLoadingReq } = useQuery({
-    queryKey: ['admin-payout-requests'],
-    queryFn: () => axios.get('/transactions/payout-requests'),
+  const { data: availableData, isLoading: isLoadingAvailable } = useQuery({
+    queryKey: ['admin-payout-names-available'],
+    queryFn: () => axios.get('/payout-names?status=available&limit=1'),
   });
 
-  if (isLoadingUsers || isLoadingAccounts || isLoadingTx || isLoadingReq) {
+  const { data: allocatedData, isLoading: isLoadingAllocated } = useQuery({
+    queryKey: ['admin-payout-names-allocated'],
+    queryFn: () => axios.get('/payout-names?status=allocated&limit=1'),
+  });
+
+  if (isLoadingUsers || isLoadingTx || isLoadingAvailable || isLoadingAllocated) {
     return (
       <div className="flex items-center justify-center p-8">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
@@ -49,17 +51,22 @@ export default function DashboardOverview() {
   }
 
   const users = usersData?.data?.data?.users || [];
-  const accounts = accountsData?.data?.data || [];
   const transactions = txData?.data?.data || [];
-  const requests = requestsData?.data?.data || [];
 
-  const clientUsersCount = users.filter(u => u.role === 'client').length;
-  const activeAccountsCount = accounts.filter(a => a.status === 'active').length;
+  const clientUsers = users.filter(u => u.role === 'client');
+  const clientUsersCount = clientUsers.length;
   
-  const totalSystemDeposits = transactions.filter(t => t.type === 'deposit').reduce((sum, t) => sum + t.grossAmount, 0);
-  const totalSystemRevenue = transactions.filter(t => t.type === 'deposit').reduce((sum, t) => sum + t.feeAmount, 0);
-  const totalProcessedPayouts = transactions.filter(t => t.type === 'payout').reduce((sum, t) => sum + t.grossAmount, 0);
-  const pendingRequestsCount = requests.filter(r => r.status === 'pending' || r.status === 'processing').length;
+  // Calculate system-wide totals directly from User model accumulators for extreme accuracy
+  const totalSystemDeposits = clientUsers.reduce((sum, c) => sum + (c.totalReceivedUSD || 0), 0);
+  const totalSystemRevenue = clientUsers.reduce((sum, c) => sum + (c.totalFeesUSD || 0), 0);
+  const totalProcessedPayouts = clientUsers.reduce((sum, c) => sum + (c.totalPaidUSD || 0), 0);
+  const totalSystemProfit = clientUsers.reduce((sum, c) => sum + (c.totalProfitUSD || 0), 0);
+  
+  // Sort clients by profit to get the top clients
+  const topClients = [...clientUsers].sort((a, b) => (b.totalProfitUSD || 0) - (a.totalProfitUSD || 0)).slice(0, 5);
+
+  const availableCount = availableData?.data?.total || 0;
+  const allocatedCount = allocatedData?.data?.total || 0;
 
   return (
     <div className="space-y-6 p-4 sm:p-6 lg:p-8">
@@ -69,7 +76,7 @@ export default function DashboardOverview() {
       </div>
 
       {/* Key Metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-6">
         <StatCard
           title="Total Clients"
           value={clientUsersCount}
@@ -77,22 +84,34 @@ export default function DashboardOverview() {
           color="blue"
         />
         <StatCard
-          title="Active Payout Names"
-          value={`${activeAccountsCount} / ${accounts.length}`}
+          title="Available Names"
+          value={availableCount}
           icon={CheckBadgeIcon}
           color="green"
         />
         <StatCard
-          title="Pending Payout Requests"
-          value={pendingRequestsCount}
+          title="Allocated (Unclaimed)"
+          value={allocatedCount}
           icon={ArrowPathIcon}
           color="yellow"
         />
         <StatCard
-          title="Total Platform Revenue"
+          title="Total Client Profit"
+          value={`$${totalSystemProfit.toFixed(2)}`}
+          icon={BanknotesIcon}
+          color="purple"
+        />
+        <StatCard
+          title="Platform Revenue"
           value={`$${totalSystemRevenue.toFixed(2)}`}
           icon={BanknotesIcon}
           color="purple"
+        />
+        <StatCard
+          title="Total Paid Out"
+          value={`$${totalProcessedPayouts.toFixed(2)}`}
+          icon={BanknotesIcon}
+          color="blue"
         />
       </div>
 
@@ -116,25 +135,23 @@ export default function DashboardOverview() {
         </div>
 
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Recent Transactions Log</h3>
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Recent Payout Log</h3>
           <div className="overflow-hidden">
             <ul className="divide-y divide-gray-100">
               {transactions.slice(0, 5).map(tx => (
                 <li key={tx._id} className="py-3 flex justify-between items-center">
                   <div>
                     <p className="text-sm font-medium text-gray-900">
-                      {tx.virtualAccount?.firstName} {tx.virtualAccount?.lastName}
+                      {tx.clientId?.profile?.firstName} {tx.clientId?.profile?.lastName}
                     </p>
                     <p className="text-xs text-gray-500">{new Date(tx.createdAt).toLocaleString()}</p>
                   </div>
                   <div className="text-right">
-                    <p className={`text-sm font-bold ${tx.type === 'deposit' ? 'text-green-600' : 'text-gray-900'}`}>
-                      {tx.type === 'deposit' ? '+' : '-'}${tx.grossAmount.toFixed(2)}
+                    <p className={`text-sm font-bold text-gray-900`}>
+                      -${tx.grossAmountUSD.toFixed(2)}
                     </p>
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium uppercase ${
-                      tx.type === 'deposit' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
-                    }`}>
-                      {tx.type}
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium uppercase bg-gray-100 text-gray-800`}>
+                      PAYOUT ({tx.payoutCurrency})
                     </span>
                   </div>
                 </li>
@@ -143,6 +160,62 @@ export default function DashboardOverview() {
                 <li className="py-3 text-center text-gray-500 text-sm">No recent transactions.</li>
               )}
             </ul>
+          </div>
+        </div>
+
+        {/* Top Clients Table */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 lg:col-span-2 mt-2">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Top Clients (By Profitability)</h3>
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Client</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Received</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Paid</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Revenue</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Net Profit</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {topClients.map((client) => (
+                  <tr key={client._id}>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center">
+                        <div className="h-10 w-10 flex-shrink-0 bg-blue-100 rounded-full flex items-center justify-center">
+                          <span className="text-blue-600 font-medium text-sm">
+                            {client.profile?.firstName?.[0]}{client.profile?.lastName?.[0]}
+                          </span>
+                        </div>
+                        <div className="ml-4">
+                          <div className="text-sm font-medium text-gray-900">{client.profile?.firstName} {client.profile?.lastName}</div>
+                          <div className="text-sm text-gray-500">{client.email}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-medium">
+                      ${(client.totalReceivedUSD || 0).toLocaleString()}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-medium">
+                      ${(client.totalPaidUSD || 0).toLocaleString()}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-purple-600 font-medium">
+                      ${(client.totalFeesUSD || 0).toLocaleString()}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-green-600 font-medium">
+                      ${(client.totalProfitUSD || 0).toLocaleString()}
+                    </td>
+                  </tr>
+                ))}
+                {topClients.length === 0 && (
+                  <tr>
+                    <td colSpan="5" className="px-6 py-4 text-center text-gray-500 text-sm">
+                      No client data available.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
           </div>
         </div>
       </div>

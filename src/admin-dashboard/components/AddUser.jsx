@@ -55,6 +55,8 @@ function AddUser({ handleCloseAddModal }) {
         lastName: data.lastName,
       },
       feePercentage: parseFloat(data.feePercentage) || 0,
+      usdBuyPrice: parseFloat(data.usdBuyPrice) || 0,
+      usdSellPrice: parseFloat(data.usdSellPrice) || 0,
     };
     userMutate(userData);
   };
@@ -188,6 +190,46 @@ function AddUser({ handleCloseAddModal }) {
               {errors.feePercentage && (
                 <p className="text-red-500 text-xs">
                   {errors.feePercentage.message}
+                </p>
+              )}
+            </div>
+            
+            {/* USD Buy Price */}
+            <div className="flex flex-col gap-1 mt-4">
+              <label className="text-sm font-medium">
+                USD Buy Price (Ksh)
+              </label>
+              <input
+                placeholder="e.g. 130.50"
+                type="number"
+                step="0.01"
+                className="input px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                {...register("usdBuyPrice", { min: 0 })}
+                disabled={loadingAddUser}
+              />
+              {errors.usdBuyPrice && (
+                <p className="text-red-500 text-xs">
+                  {errors.usdBuyPrice.message}
+                </p>
+              )}
+            </div>
+
+            {/* USD Sell Price */}
+            <div className="flex flex-col gap-1 mt-4">
+              <label className="text-sm font-medium">
+                USD Sell Price (Ksh)
+              </label>
+              <input
+                placeholder="e.g. 132.50"
+                type="number"
+                step="0.01"
+                className="input px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                {...register("usdSellPrice", { min: 0 })}
+                disabled={loadingAddUser}
+              />
+              {errors.usdSellPrice && (
+                <p className="text-red-500 text-xs">
+                  {errors.usdSellPrice.message}
                 </p>
               )}
             </div>
