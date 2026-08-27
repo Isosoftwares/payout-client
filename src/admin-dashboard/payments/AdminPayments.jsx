@@ -249,7 +249,9 @@ export default function AdminPayments() {
                       {history.fileName}
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-500 whitespace-nowrap">
-                      {history.uploadedBy?.name || 'Unknown'}
+                      {history.uploadedBy?.profile?.firstName 
+                        ? `${history.uploadedBy.profile.firstName} ${history.uploadedBy.profile.lastName || ''}`
+                        : history.uploadedBy?.email || 'Unknown'}
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-900 whitespace-nowrap">
                       {history.totalProcessed}

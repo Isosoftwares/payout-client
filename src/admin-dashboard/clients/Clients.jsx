@@ -354,15 +354,21 @@ function Clients() {
                       </td>
                       <td className="px-6 py-6">
                         <div className="flex items-center space-x-3">
-                          <button
-                            onClick={() =>
-                              navigate(`/dashboard/clients/${client?._id}`)
-                            }
-                            className="text-primary hover:text-secondary p-2 rounded-lg hover:bg-orange-50 transition-all duration-200"
-                            title="View Details"
-                          >
-                            <EyeIcon className="h-5 w-5" />
-                          </button>
+                          {client?.role === 'client' ? (
+                            <button
+                              onClick={() =>
+                                navigate(`/dashboard/clients/${client?._id}`)
+                              }
+                              className="text-primary hover:text-secondary p-2 rounded-lg hover:bg-orange-50 transition-all duration-200"
+                              title="View Details"
+                            >
+                              <EyeIcon className="h-5 w-5" />
+                            </button>
+                          ) : (
+                            <span className="text-gray-400 p-2 text-xs font-medium">
+                              Admin Account
+                            </span>
+                          )}
                           {/* <button
                             onClick={() =>
                               navigate(`/dashboard/clients/${client?._id}/edit`)

@@ -71,8 +71,16 @@ function ClientSupport() {
 
   const submitMessage = (data) => {
     if (!data.message.trim()) return;
-    console.log(data);
-    messageMutate(data);
+    
+    const payload = {
+      message: data.message,
+      userId: auth?.userId,
+      role: auth?.roles?.[0] || 'client',
+      userName: auth?.user?.profile?.firstName || auth?.user?.username || auth?.user?.email?.split("@")[0] || "Customer"
+    };
+
+    console.log("Submitting support message:", payload);
+    messageMutate(payload);
   };
 
   // Auto scroll to bottom when new messages arrive
@@ -158,11 +166,11 @@ function ClientSupport() {
                 {conversationData?.data?.messages?.map((message, index) => (
                   <div
                     key={index}
-                    className={`flex ${message.from === auth?.roles[0] ? "justify-end" : "justify-start"}`}
+                    className={`flex ${message.from === (auth?.roles?.[0] || 'client') ? "justify-end" : "justify-start"}`}
                   >
                     <div
                       className={`max-w-xs lg:max-w-md px-4 py-3 rounded-2xl ${
-                        message.from === auth?.roles[0]
+                        message.from === (auth?.roles?.[0] || 'client')
                           ? "bg-gradient-to-r from-[#C75D2C] to-[#C83F12] text-white rounded-br-sm"
                           : "bg-white text-gray-800 shadow-sm border border-gray-200 rounded-bl-sm"
                       } relative`}
@@ -173,13 +181,13 @@ function ClientSupport() {
                         </p>
                         <div className="flex items-center justify-between">
                           <span className={`text-xs ${
-                            message.from === auth?.roles[0] 
+                            message.from === (auth?.roles?.[0] || 'client')
                               ? "text-orange-100" 
                               : "text-gray-500"
                           }`}>
                             {message?.createdAt ? format(message?.createdAt) : ""}
                           </span>
-                          {message.from === auth?.roles[0] && (
+                          {message.from === (auth?.roles?.[0] || 'client') && (
                             <span className="text-xs text-orange-100 ml-2">You</span>
                           )}
                           {message.from === "Admin" && (
@@ -199,22 +207,6 @@ function ClientSupport() {
         {/* Message Input */}
         <div className="bg-white border-t border-gray-200 p-4">
           <form onSubmit={handleSubmit(submitMessage)} className="space-y-3">
-            {/* Hidden fields */}
-            <input
-              type="hidden"
-              value={auth?.userId}
-              {...register("userId", { required: true })}
-            />
-            <input
-              type="hidden"
-              value={auth?.roles[0]}
-              {...register("role", { required: true })}
-            />
-            <input
-              type="hidden"
-              value={auth?.user?.email?.split("@")[0] || auth?.user?.email}
-              {...register("userName", { required: true })}
-            />
 
             <div className="flex space-x-3">
               <div className="flex-1 relative">

@@ -85,13 +85,14 @@ export default function Subaccounts() {
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     {new Date(sub.createdAt).toLocaleDateString()}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    <button 
+                  <td className="px-6 py-4 whitespace-nowrap text-sm  text-gray-500">
+                    --
+                    {/* <button 
                       onClick={() => handleDelete(sub._id)}
                       className="text-red-600 hover:text-red-800 font-medium"
                     >
                       Delete
-                    </button>
+                    </button> */}
                   </td>
                 </tr>
               ))

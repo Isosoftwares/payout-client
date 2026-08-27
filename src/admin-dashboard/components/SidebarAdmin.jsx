@@ -18,7 +18,6 @@ const navigation = [
   { name: "Payout Names", href: "/dashboard/payout-names", icon: DocumentPlusIcon, key: "payout-names" },
   { name: "Allocation Requests", href: "/dashboard/allocation-requests", icon: DocumentPlusIcon, key: "allocation-requests" },
   { name: "Payments", href: "/dashboard/payments", icon: SparklesIcon },
-  // { name: "Transactions", href: "/dashboard/transactions", icon: SparklesIcon },
   { name: "Process Payouts", href: "/dashboard/process-payouts", icon: SparklesIcon },
   { name: "Fee Ledger", href: "/dashboard/fee-ledger", icon: SparklesIcon },
   { name: "Profile", href: "/dashboard/profile", icon: UserIcon },

@@ -49,7 +49,7 @@ function AddUser({ handleCloseAddModal }) {
       username: data.username,
       email: data.email,
       password: data.password,
-      role: "client",
+      role: data.role,
       profile: {
         firstName: data.firstName,
         lastName: data.lastName,
@@ -60,6 +60,8 @@ function AddUser({ handleCloseAddModal }) {
     };
     userMutate(userData);
   };
+
+  const selectedRole = watch("role", "client");
 
   return (
     <div className="">
@@ -84,6 +86,21 @@ function AddUser({ handleCloseAddModal }) {
                   {errors.username.message}
                 </p>
               )}
+            </div>
+            
+            {/* Role */}
+            <div className="flex flex-col gap-1 mt-4">
+              <label className="text-sm font-medium">
+                Role <span className="text-red-500">*</span>
+              </label>
+              <select
+                className="input px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                {...register("role", { required: "Role is required" })}
+                disabled={loadingAddUser}
+              >
+                <option value="client">Client</option>
+                <option value="admin">Admin</option>
+              </select>
             </div>
 
             {/* Email */}
@@ -174,65 +191,69 @@ function AddUser({ handleCloseAddModal }) {
               )}
             </div>
 
-            {/* Fee Percentage */}
-            <div className="flex flex-col gap-1 mt-4">
-              <label className="text-sm font-medium">
-                Fee Percentage (%) <span className="text-red-500">*</span>
-              </label>
-              <input
-                placeholder="e.g. 5"
-                type="number"
-                step="0.01"
-                className="input px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                {...register("feePercentage", { required: "Fee percentage is required", min: 0, max: 100 })}
-                disabled={loadingAddUser}
-              />
-              {errors.feePercentage && (
-                <p className="text-red-500 text-xs">
-                  {errors.feePercentage.message}
-                </p>
-              )}
-            </div>
-            
-            {/* USD Buy Price */}
-            <div className="flex flex-col gap-1 mt-4">
-              <label className="text-sm font-medium">
-                USD Buy Price (Ksh)
-              </label>
-              <input
-                placeholder="e.g. 130.50"
-                type="number"
-                step="0.01"
-                className="input px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                {...register("usdBuyPrice", { min: 0 })}
-                disabled={loadingAddUser}
-              />
-              {errors.usdBuyPrice && (
-                <p className="text-red-500 text-xs">
-                  {errors.usdBuyPrice.message}
-                </p>
-              )}
-            </div>
+            {selectedRole === "client" && (
+              <>
+                {/* Fee Percentage */}
+                <div className="flex flex-col gap-1 mt-4">
+                  <label className="text-sm font-medium">
+                    Fee Percentage (%) <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    placeholder="e.g. 5"
+                    type="number"
+                    step="0.01"
+                    className="input px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    {...register("feePercentage", { required: "Fee percentage is required", min: 0, max: 100 })}
+                    disabled={loadingAddUser}
+                  />
+                  {errors.feePercentage && (
+                    <p className="text-red-500 text-xs">
+                      {errors.feePercentage.message}
+                    </p>
+                  )}
+                </div>
+                
+                {/* USD Buy Price */}
+                <div className="flex flex-col gap-1 mt-4">
+                  <label className="text-sm font-medium">
+                    USD Buy Price (Ksh)
+                  </label>
+                  <input
+                    placeholder="e.g. 130.50"
+                    type="number"
+                    step="0.01"
+                    className="input px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    {...register("usdBuyPrice", { min: 0 })}
+                    disabled={loadingAddUser}
+                  />
+                  {errors.usdBuyPrice && (
+                    <p className="text-red-500 text-xs">
+                      {errors.usdBuyPrice.message}
+                    </p>
+                  )}
+                </div>
 
-            {/* USD Sell Price */}
-            <div className="flex flex-col gap-1 mt-4">
-              <label className="text-sm font-medium">
-                USD Sell Price (Ksh)
-              </label>
-              <input
-                placeholder="e.g. 132.50"
-                type="number"
-                step="0.01"
-                className="input px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                {...register("usdSellPrice", { min: 0 })}
-                disabled={loadingAddUser}
-              />
-              {errors.usdSellPrice && (
-                <p className="text-red-500 text-xs">
-                  {errors.usdSellPrice.message}
-                </p>
-              )}
-            </div>
+                {/* USD Sell Price */}
+                <div className="flex flex-col gap-1 mt-4">
+                  <label className="text-sm font-medium">
+                    USD Sell Price (Ksh)
+                  </label>
+                  <input
+                    placeholder="e.g. 132.50"
+                    type="number"
+                    step="0.01"
+                    className="input px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    {...register("usdSellPrice", { min: 0 })}
+                    disabled={loadingAddUser}
+                  />
+                  {errors.usdSellPrice && (
+                    <p className="text-red-500 text-xs">
+                      {errors.usdSellPrice.message}
+                    </p>
+                  )}
+                </div>
+              </>
+            )}
           </div>
 
           {/* Action Buttons */}

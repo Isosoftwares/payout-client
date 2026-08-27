@@ -10,7 +10,7 @@ export default function Transactions() {
 
   const { data: txData, isLoading } = useQuery({
     queryKey: ['client-transactions', page, limit],
-    queryFn: () => axios.get(`/transactions?page=${page}&limit=${limit}`),
+    queryFn: () => axios.get(`/batch-payouts/client-transactions?page=${page}&limit=${limit}`),
     keepPreviousData: true,
   });
 
@@ -37,9 +37,9 @@ export default function Transactions() {
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Date</th>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Account</th>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Type</th>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Amount (Net)</th>
+                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Payout Amount</th>
+                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Exchange Rate</th>
+                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Currency</th>
                 <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Reference</th>
               </tr>
             </thead>
@@ -54,23 +54,19 @@ export default function Transactions() {
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {new Date(tx.createdAt).toLocaleString()}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                      {tx.virtualAccount?.firstName} {tx.virtualAccount?.lastName}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                        tx.type === 'deposit' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
-                      }`}>
-                        {tx.type.toUpperCase()}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-bold">
-                      <span className={tx.type === 'deposit' ? 'text-green-600' : 'text-gray-900'}>
-                        {tx.type === 'deposit' ? '+' : '-'}${tx.netAmount.toFixed(2)}
-                      </span>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900">
+                      {tx.finalPayoutAmount?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {tx.reference || '-'}
+                      {tx.payoutCurrency === 'KES' ? `1 USD = ${tx.exchangeRateSell} KES` : '1:1'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800`}>
+                        {tx.payoutCurrency}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 font-mono">
+                      {tx.referenceId || tx._id.substring(tx._id.length - 8)}
                     </td>
                   </tr>
                 ))
