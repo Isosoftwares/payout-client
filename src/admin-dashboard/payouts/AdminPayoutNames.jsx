@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import useAxiosPrivate from '../../hooks/useAxiosPrivate';
 import { toast } from 'react-toastify';
-import { MagnifyingGlassIcon, ArrowUpTrayIcon } from '@heroicons/react/24/outline';
+import { MagnifyingGlassIcon, ArrowUpTrayIcon, TrashIcon } from '@heroicons/react/24/outline';
 
 export default function AdminPayoutNames() {
   const axios = useAxiosPrivate();
@@ -49,6 +49,21 @@ export default function AdminPayoutNames() {
     const formData = new FormData();
     formData.append('file', file);
     uploadFile(formData);
+  };
+
+  const { mutate: deletePayoutName, isPending: isDeleting } = useMutation({
+    mutationFn: (id) => axios.delete(`/payout-names/${id}`),
+    onSuccess: (res) => {
+      toast.success(res.data.message || 'Payout name deleted successfully');
+      queryClient.invalidateQueries(['admin-payout-names']);
+    },
+    onError: (err) => toast.error(err?.response?.data?.message || 'Failed to delete payout name'),
+  });
+
+  const handleDelete = (id) => {
+    if (window.confirm('Are you sure you want to delete this payout name?')) {
+      deletePayoutName(id);
+    }
   };
 
   const handlePageChange = (newPage) => {
@@ -182,6 +197,7 @@ export default function AdminPayoutNames() {
                     <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Status</th>
                     <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Amount</th>
                     <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Payment Status</th>
+                    <th className="relative py-3.5 pl-3 pr-4 sm:pr-6"><span className="sr-only">Actions</span></th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200 bg-white">
@@ -220,6 +236,16 @@ export default function AdminPayoutNames() {
                               'bg-purple-100 text-purple-800'}`}>
                             {item.paymentStatus ? item.paymentStatus.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase()) : 'Not Received'}
                           </span>
+                        </td>
+                        <td className="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
+                          <button
+                            onClick={() => handleDelete(item._id)}
+                            disabled={isDeleting}
+                            className="text-red-600 hover:text-red-900 disabled:opacity-50"
+                            title="Delete"
+                          >
+                            <TrashIcon className="h-5 w-5" />
+                          </button>
                         </td>
                       </tr>
                     ))
