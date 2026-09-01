@@ -12,11 +12,13 @@ export default function PayoutNames() {
   const [page, setPage] = useState(1);
   const [limit] = useState(6);
   const [searchTerm, setSearchTerm] = useState('');
+  const [subaccountFilter, setSubaccountFilter] = useState('');
+  const [selectedNames, setSelectedNames] = useState(new Set());
   const { register, handleSubmit, reset, formState: { errors } } = useForm();
 
   const { data: inventoryData, isLoading: isLoadingInventory } = useQuery({
-    queryKey: ['client-inventory', searchTerm],
-    queryFn: () => axios.get(`/payout-names/my-inventory?search=${searchTerm}`),
+    queryKey: ['client-inventory', searchTerm, subaccountFilter],
+    queryFn: () => axios.get(`/payout-names/my-inventory?search=${searchTerm}&subaccount=${subaccountFilter}`),
     keepPreviousData: true,
   });
 
@@ -72,6 +74,59 @@ export default function PayoutNames() {
     }
   };
 
+  const handleSelectAll = (e) => {
+    if (e.target.checked) {
+      setSelectedNames(new Set(claimedNames.map(n => n._id)));
+    } else {
+      setSelectedNames(new Set());
+    }
+  };
+
+  const handleSelectName = (id) => {
+    const newSelected = new Set(selectedNames);
+    if (newSelected.has(id)) {
+      newSelected.delete(id);
+    } else {
+      newSelected.add(id);
+    }
+    setSelectedNames(newSelected);
+  };
+
+  const downloadNames = () => {
+    let namesToDownload = claimedNames;
+    if (selectedNames.size > 0) {
+      namesToDownload = claimedNames.filter(n => selectedNames.has(n._id));
+    }
+    
+    if (namesToDownload.length === 0) {
+      toast.info('No names available to download.');
+      return;
+    }
+    
+    const headers = ['Name', 'Account Number', 'Routing Number', 'Claimed For', 'Amount', 'Payment Status', 'Maturity Date'];
+    const rows = namesToDownload.map(name => [
+      name.name,
+      name.accountNumber,
+      name.routingNumber,
+      name.claimedForSubaccount ? name.claimedForSubaccount.username : 'Self',
+      name.amount || 0,
+      name.paymentStatus || 'not_received',
+      name.maturityDate ? new Date(name.maturityDate).toLocaleDateString() : 'N/A'
+    ]);
+    
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
+    ].join('\n');
+    
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.setAttribute('href', url);
+    a.setAttribute('download', 'payout_names.csv');
+    a.click();
+  };
+
   return (
     <div className="p-4 sm:p-6 lg:p-8 space-y-8">
       {/* Header and Stats */}
@@ -106,25 +161,50 @@ export default function PayoutNames() {
         
         {/* Claimed Names Section */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col h-full">
-          <div className="px-6 py-4 border-b border-gray-200 bg-gray-50 flex flex-col sm:flex-row justify-between sm:items-center gap-4">
+          <div className="px-6 py-4 border-b border-gray-200 bg-gray-50 flex flex-col lg:flex-row justify-between lg:items-center gap-4">
             <div>
               <h2 className="text-lg font-semibold text-gray-900">Claimed Names (Active)</h2>
               <p className="text-xs text-gray-500">These are your ready-to-use payout details.</p>
             </div>
-            <div className="w-full sm:w-64">
+            <div className="flex flex-col sm:flex-row gap-3">
+              <select
+                value={subaccountFilter}
+                onChange={(e) => setSubaccountFilter(e.target.value)}
+                className="block w-full sm:w-40 px-3 py-2 border border-gray-300 rounded-md text-sm shadow-sm focus:ring-blue-500 focus:border-blue-500 bg-white"
+              >
+                <option value="">All Accounts</option>
+                <option value="self">Self (Main)</option>
+                {subaccounts.map(sa => (
+                  <option key={sa._id} value={sa._id}>{sa.username}</option>
+                ))}
+              </select>
               <input
                 type="text"
                 placeholder="Search name or account..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="block w-full px-3 py-2 border border-gray-300 rounded-md text-sm shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                className="block w-full sm:w-56 px-3 py-2 border border-gray-300 rounded-md text-sm shadow-sm focus:ring-blue-500 focus:border-blue-500"
               />
+              <button
+                onClick={downloadNames}
+                className="px-4 py-2 bg-green-600 text-white rounded-md font-medium hover:bg-green-700 whitespace-nowrap text-sm shadow-sm transition-colors"
+              >
+                {selectedNames.size > 0 ? `Download Selected (${selectedNames.size})` : 'Download All'}
+              </button>
             </div>
           </div>
           <div className="overflow-y-auto max-h-[500px]">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50 sticky top-0">
                 <tr>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                    <input 
+                      type="checkbox" 
+                      className="rounded border-gray-300 text-primary focus:ring-primary"
+                      checked={claimedNames.length > 0 && selectedNames.size === claimedNames.length}
+                      onChange={handleSelectAll}
+                    />
+                  </th>
                   <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Name</th>
                   <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Acct Number</th>
                   <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Routing Number</th>
@@ -136,12 +216,20 @@ export default function PayoutNames() {
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {isLoadingInventory ? (
-                  <tr><td colSpan="7" className="p-6 text-center text-gray-500">Loading inventory...</td></tr>
+                  <tr><td colSpan="8" className="p-6 text-center text-gray-500">Loading inventory...</td></tr>
                 ) : claimedNames.length === 0 ? (
-                  <tr><td colSpan="7" className="p-6 text-center text-gray-500">You haven't claimed any names yet (or none match search).</td></tr>
+                  <tr><td colSpan="8" className="p-6 text-center text-gray-500">You haven't claimed any names yet (or none match search).</td></tr>
                 ) : (
                   claimedNames.map(name => (
                     <tr key={name._id} className="hover:bg-gray-50 transition-colors">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <input 
+                          type="checkbox" 
+                          className="rounded border-gray-300 text-primary focus:ring-primary"
+                          checked={selectedNames.has(name._id)}
+                          onChange={() => handleSelectName(name._id)}
+                        />
+                      </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                         {name.name}
                       </td>

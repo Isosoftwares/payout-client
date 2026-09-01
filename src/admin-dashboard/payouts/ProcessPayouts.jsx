@@ -10,6 +10,7 @@ export default function ProcessPayouts() {
   const [selectedAdminId, setSelectedAdminId] = useState('all');
   const [selectedClientId, setSelectedClientId] = useState('');
   const [selectedNames, setSelectedNames] = useState([]);
+  const [maturityDateFilter, setMaturityDateFilter] = useState('');
   
   // Execution State
   const [payoutCurrency, setPayoutCurrency] = useState('USD');
@@ -34,7 +35,23 @@ export default function ProcessPayouts() {
     queryFn: () => axios.get(`/batch-payouts/matured-names/${selectedClientId}`),
     enabled: !!selectedClientId
   });
-  const maturedNames = namesData?.data?.data || [];
+  
+  // Sort by maturity date ascending (oldest first)
+  const rawMaturedNames = namesData?.data?.data || [];
+  const sortedNames = [...rawMaturedNames].sort((a, b) => {
+    if (!a.maturityDate) return 1;
+    if (!b.maturityDate) return -1;
+    return new Date(a.maturityDate) - new Date(b.maturityDate);
+  });
+  
+  // Filter by maturity date
+  const maturedNames = maturityDateFilter 
+    ? sortedNames.filter(n => {
+        if (!n.maturityDate) return false;
+        const nDate = new Date(n.maturityDate).toISOString().split('T')[0];
+        return nDate === maturityDateFilter;
+      })
+    : sortedNames;
 
   const { data: adminStatsData, isLoading: isLoadingStats } = useQuery({
     queryKey: ['payout-admin-stats', selectedAdminId],
@@ -126,8 +143,8 @@ export default function ProcessPayouts() {
   const feePercentage = selectedClient?.feePercentage || 0;
   const feeAmountUSD = (grossAmountUSD * feePercentage) / 100;
   const netAmountUSD = grossAmountUSD - feeAmountUSD;
-  const usdBuyPrice = selectedClient?.usdBuyPrice || 1;
-  const usdSellPrice = selectedClient?.usdSellPrice || 1;
+  const usdBuyPrice = selectedClient?.usdBuyPrice || 124;
+  const usdSellPrice = selectedClient?.usdSellPrice || 131;
   
   let finalPayoutAmount = 0;
   let spreadProfitUSD = 0;
@@ -138,6 +155,10 @@ export default function ProcessPayouts() {
     spreadProfitUSD = netAmountUSD - finalPayoutAmount;
   }
   const totalProfitUSD = feeAmountUSD + spreadProfitUSD;
+
+  const selectedPaymentMethod = selectedClient?.paymentMethods?.find(pm => pm._id === paymentMethodId);
+
+  console.log(selectedClient?.paymentMethods);
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 space-y-8">
@@ -209,11 +230,36 @@ export default function ProcessPayouts() {
 
           {selectedClientId && (
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-              <div className="px-6 py-4 border-b border-gray-200 bg-gray-50 flex justify-between items-center">
-                <h2 className="text-lg font-medium text-gray-900">2. Select Matured Names</h2>
-                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                  {maturedNames.length} Available
-                </span>
+              <div className="px-6 py-4 border-b border-gray-200 bg-gray-50 flex flex-col sm:flex-row justify-between sm:items-center gap-4">
+                <div className="flex items-center gap-3">
+                  <h2 className="text-lg font-medium text-gray-900">2. Select Matured Names</h2>
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                    {maturedNames.length} Available
+                  </span>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Filter by Maturity Date</label>
+                  <input
+                    type="date"
+                    value={maturityDateFilter}
+                    onChange={(e) => {
+                      setMaturityDateFilter(e.target.value);
+                      setSelectedNames([]); // Clear selection on filter change
+                    }}
+                    className="block w-full sm:w-auto px-3 py-1.5 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm"
+                  />
+                  {maturityDateFilter && (
+                    <button 
+                      onClick={() => {
+                        setMaturityDateFilter('');
+                        setSelectedNames([]);
+                      }}
+                      className="text-xs text-blue-600 hover:text-blue-800 mt-1 block"
+                    >
+                      Clear Filter
+                    </button>
+                  )}
+                </div>
               </div>
               <div className="overflow-x-auto max-h-[500px]">
                 <table className="min-w-full divide-y divide-gray-200">
@@ -300,23 +346,50 @@ export default function ProcessPayouts() {
                 {/* Execution Options */}
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Destination Bank Account</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Destination Account</label>
                     <select
                       value={paymentMethodId}
                       onChange={(e) => handlePaymentMethodChange(e.target.value)}
                       required
                       className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                     >
-                      <option value="">-- Select Saved Bank --</option>
+                      <option value="">-- Select Saved Destination --</option>
                       {selectedClient?.paymentMethods?.map(pm => (
                         <option key={pm._id} value={pm._id}>
-                          {pm.type.toUpperCase()} - {pm.details?.accountNumber || pm.details?.walletAddress || pm.details?.phone || 'Account'} 
-                          {pm.type === 'bank' && pm.details?.routingNumber ? ` (Routing: ${pm.details.routingNumber})` : ''}
-                          {pm.type === 'mpesa' ? ' (KES)' : pm.details?.bankCurrency ? ` (${pm.details.bankCurrency})` : ''}
+                          {pm.type === 'bank' ? pm.details?.bankName : pm.type.toUpperCase()} - {pm.details?.accountNumber || pm.details?.phone || pm.details?.walletAddress || 'Account'} 
                           {pm.isDefault ? ' ⭐ PREFERRED' : ''}
                         </option>
                       ))}
                     </select>
+
+                    {selectedPaymentMethod && (
+                      <div className="mt-3 p-3 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-700">
+                        {selectedPaymentMethod.type === 'bank' && (
+                          <div className="space-y-1">
+                            <p><span className="font-medium text-gray-500">Bank Name:</span> {selectedPaymentMethod.details?.bankName}</p>
+                            <p><span className="font-medium text-gray-500">Account Name:</span> {selectedPaymentMethod.details?.accountName}</p>
+                            <p><span className="font-medium text-gray-500">Account No:</span> {selectedPaymentMethod.details?.accountNumber}</p>
+                            {selectedPaymentMethod.details?.branchCode && (
+                              <p className="break-all"><span className="font-medium text-gray-500">Routing/Branch:</span> {selectedPaymentMethod.details.branchCode}</p>
+                            )}
+                            <p><span className="font-medium text-gray-500">Currency:</span> {selectedPaymentMethod.details?.bankCurrency || 'KES'}</p>
+                          </div>
+                        )}
+                        {selectedPaymentMethod.type === 'mpesa' && (
+                          <div className="space-y-1">
+                            <p><span className="font-medium text-gray-500">Name:</span> {selectedPaymentMethod.details?.name || selectedPaymentMethod.details?.accountName}</p>
+                            <p><span className="font-medium text-gray-500">Phone:</span> {selectedPaymentMethod.details?.phone}</p>
+                            <p><span className="font-medium text-gray-500">Currency:</span> KES</p>
+                          </div>
+                        )}
+                        {selectedPaymentMethod.type === 'crypto' && (
+                          <div className="space-y-1">
+                            <p><span className="font-medium text-gray-500">Network:</span> {selectedPaymentMethod.details?.network}</p>
+                            <p className="break-all"><span className="font-medium text-gray-500">Address:</span> {selectedPaymentMethod.details?.walletAddress}</p>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
 
                   <div>
