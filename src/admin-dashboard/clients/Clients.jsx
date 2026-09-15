@@ -12,6 +12,9 @@ import {
   UserPlusIcon,
   FunnelIcon,
   ExclamationTriangleIcon,
+  KeyIcon,
+  NoSymbolIcon,
+  CheckCircleIcon,
 } from "@heroicons/react/24/outline";
 import AddUser from "../components/AddUser";
 
@@ -99,7 +102,7 @@ function Clients() {
 
   const handleDeleteClient = async (clientId, clientEmail) => {
     if (
-      window.confirm(`Are you sure you want to delete client: ${clientEmail}?`)
+      window.confirm(`Are you sure you want to delete client: ${clientEmail}? This will permanently remove the account if no names are claimed or allocated.`)
     ) {
       try {
         await axios.delete(`/users/${clientId}`);
@@ -110,6 +113,42 @@ function Clients() {
           error?.response?.data?.message ||
           error?.message ||
           "Failed to delete client";
+        toast.error(errorMessage);
+      }
+    }
+  };
+
+  const handleResetPassword = async (clientId, clientEmail) => {
+    if (
+      window.confirm(`Reset password for ${clientEmail} to "123456"?`)
+    ) {
+      try {
+        const res = await axios.post(`/users/${clientId}/reset-password`);
+        toast.success(res?.data?.message || 'Password reset to 123456 successfully');
+      } catch (error) {
+        const errorMessage =
+          error?.response?.data?.message ||
+          error?.message ||
+          "Failed to reset password";
+        toast.error(errorMessage);
+      }
+    }
+  };
+
+  const handleToggleSuspend = async (clientId, clientEmail, isSuspended) => {
+    const action = isSuspended ? "activate" : "suspend";
+    if (
+      window.confirm(`Are you sure you want to ${action} client: ${clientEmail}?`)
+    ) {
+      try {
+        const res = await axios.post(`/users/${clientId}/toggle-suspend`);
+        toast.success(res?.data?.message || `Client ${action}ed successfully`);
+        refetch();
+      } catch (error) {
+        const errorMessage =
+          error?.response?.data?.message ||
+          error?.message ||
+          `Failed to ${action} client`;
         toast.error(errorMessage);
       }
     }
@@ -339,12 +378,14 @@ function Clients() {
                       <td className="px-6 py-6">
                         <span
                           className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
-                            client?.isActive
+                            client?.isSuspended
+                              ? "bg-amber-100 text-amber-800"
+                              : client?.isActive
                               ? "bg-green-100 text-green-800"
                               : "bg-red-100 text-red-800"
                           }`}
                         >
-                          {client?.isActive ? "Active" : "Inactive"}
+                          {client?.isSuspended ? "Suspended" : client?.isActive ? "Active" : "Inactive"}
                         </span>
                       </td>
                       <td className="px-6 py-6 text-sm text-gray-500">
@@ -353,40 +394,59 @@ function Clients() {
                           : "N/A"}
                       </td>
                       <td className="px-6 py-6">
-                        <div className="flex items-center space-x-3">
+                        <div className="flex items-center space-x-2">
                           {client?.role === 'client' ? (
-                            <button
-                              onClick={() =>
-                                navigate(`/dashboard/clients/${client?._id}`)
-                              }
-                              className="text-primary hover:text-secondary p-2 rounded-lg hover:bg-orange-50 transition-all duration-200"
-                              title="View Details"
-                            >
-                              <EyeIcon className="h-5 w-5" />
-                            </button>
+                            <>
+                              <button
+                                onClick={() =>
+                                  navigate(`/dashboard/clients/${client?._id}`)
+                                }
+                                className="text-primary hover:text-secondary p-1.5 rounded-lg hover:bg-orange-50 transition-all duration-200"
+                                title="View Details"
+                              >
+                                <EyeIcon className="h-5 w-5" />
+                              </button>
+                              <button
+                                onClick={() =>
+                                  handleResetPassword(client?._id, client?.email)
+                                }
+                                className="text-indigo-600 hover:text-indigo-800 p-1.5 rounded-lg hover:bg-indigo-50 transition-all duration-200"
+                                title="Reset Password to 123456"
+                              >
+                                <KeyIcon className="h-5 w-5" />
+                              </button>
+                              <button
+                                onClick={() =>
+                                  handleToggleSuspend(client?._id, client?.email, client?.isSuspended)
+                                }
+                                className={`p-1.5 rounded-lg transition-all duration-200 ${
+                                  client?.isSuspended
+                                    ? "text-emerald-600 hover:text-emerald-800 hover:bg-emerald-50"
+                                    : "text-amber-600 hover:text-amber-800 hover:bg-amber-50"
+                                }`}
+                                title={client?.isSuspended ? "Activate Client" : "Suspend Client"}
+                              >
+                                {client?.isSuspended ? (
+                                  <CheckCircleIcon className="h-5 w-5" />
+                                ) : (
+                                  <NoSymbolIcon className="h-5 w-5" />
+                                )}
+                              </button>
+                              <button
+                                onClick={() =>
+                                  handleDeleteClient(client?._id, client?.email)
+                                }
+                                className="text-red-600 hover:text-red-800 p-1.5 rounded-lg hover:bg-red-50 transition-all duration-200"
+                                title="Delete Client"
+                              >
+                                <TrashIcon className="h-5 w-5" />
+                              </button>
+                            </>
                           ) : (
                             <span className="text-gray-400 p-2 text-xs font-medium">
                               Admin Account
                             </span>
                           )}
-                          {/* <button
-                            onClick={() =>
-                              navigate(`/dashboard/clients/${client?._id}/edit`)
-                            }
-                            className="text-yellow-600 hover:text-yellow-700 p-2 rounded-lg hover:bg-yellow-50 transition-all duration-200"
-                            title="Edit Client"
-                          >
-                            <PencilIcon className="h-5 w-5" />
-                          </button>
-                          <button
-                            onClick={() =>
-                              handleDeleteClient(client?._id, client?.email)
-                            }
-                            className="text-red-600 hover:text-red-700 p-2 rounded-lg hover:bg-red-50 transition-all duration-200"
-                            title="Delete Client"
-                          >
-                            <TrashIcon className="h-5 w-5" />
-                          </button> */}
                         </div>
                       </td>
                     </tr>

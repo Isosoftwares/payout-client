@@ -10,11 +10,15 @@ import {
   ShieldExclamationIcon,
 } from "@heroicons/react/24/outline";
 
-function DeleteUserModal({ isOpen, onClose, client }) {
+function DeleteUserModal({ isOpen, onClose, client, claimedCount = 0, allocatedCount = 0, onSuspendInstead }) {
   const [confirmationText, setConfirmationText] = useState("");
   const axios = useAxiosPrivate();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+
+  const hasClaimed = claimedCount > 0;
+  const hasAllocated = allocatedCount > 0;
+  const canDelete = !hasClaimed && !hasAllocated;
 
   const expectedConfirmation = client?.email || "";
   const isConfirmationValid =
@@ -42,6 +46,15 @@ function DeleteUserModal({ isOpen, onClose, client }) {
   });
 
   const handleDelete = () => {
+    if (!canDelete) {
+      if (hasClaimed) {
+        toast.error("Clients with claimed names cannot be deleted. You can suspend the client instead.");
+      } else if (hasAllocated) {
+        toast.error("Clients with allocated names cannot be deleted unless all names are de-allocated.");
+      }
+      return;
+    }
+
     if (!isConfirmationValid) {
       toast.error("Please enter the correct email address to confirm deletion");
       return;
@@ -76,7 +89,7 @@ function DeleteUserModal({ isOpen, onClose, client }) {
                   Delete User
                 </h3>
                 <p className="text-sm text-gray-600">
-                  This action cannot be undone
+                  {canDelete ? "Permanent account removal" : "Action restricted"}
                 </p>
               </div>
             </div>
@@ -90,28 +103,76 @@ function DeleteUserModal({ isOpen, onClose, client }) {
         </div>
 
         <div className="p-6 space-y-6">
-          {/* Warning Message */}
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-            <div className="flex">
-              <ExclamationTriangleIcon className="h-5 w-5 text-red-400 mt-0.5 mr-3" />
-              <div>
-                <h4 className="text-sm font-medium text-red-800 mb-1">
-                  Warning: This will permanently delete the user account
-                </h4>
-                <ul className="text-sm text-red-700 space-y-1">
-                  <li>• The user will be deactivated and cannot login</li>
-                  <li>• All user data will be preserved for audit purposes</li>
-                  <li>• This action cannot be reversed</li>
-                  {client?.balance > 0 && (
-                    <li className="font-medium">
-                      • Current balance: ${client.balance.toFixed(2)} will be
-                      locked
-                    </li>
+          {/* Guardrail 1: Claimed Names Warning */}
+          {hasClaimed && (
+            <div className="bg-amber-50 border border-amber-300 rounded-lg p-4">
+              <div className="flex">
+                <ExclamationTriangleIcon className="h-5 w-5 text-amber-500 mt-0.5 mr-3 flex-shrink-0" />
+                <div>
+                  <h4 className="text-sm font-semibold text-amber-900 mb-1">
+                    Cannot Delete: Claimed Names Exist
+                  </h4>
+                  <p className="text-sm text-amber-800">
+                    This client has <strong className="font-bold">{claimedCount} claimed payout name(s)</strong> with active banking details and transactions.
+                  </p>
+                  <p className="text-sm text-amber-800 mt-2 font-medium">
+                    Clients with claimed names cannot be deleted, but can be suspended.
+                  </p>
+                  {onSuspendInstead && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        handleClose();
+                        onSuspendInstead();
+                      }}
+                      className="mt-3 inline-flex items-center px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold rounded-md shadow-sm transition-colors"
+                    >
+                      Suspend Client Instead
+                    </button>
                   )}
-                </ul>
+                </div>
               </div>
             </div>
-          </div>
+          )}
+
+          {/* Guardrail 2: Allocated Names Warning */}
+          {!hasClaimed && hasAllocated && (
+            <div className="bg-yellow-50 border border-yellow-300 rounded-lg p-4">
+              <div className="flex">
+                <ExclamationTriangleIcon className="h-5 w-5 text-yellow-600 mt-0.5 mr-3 flex-shrink-0" />
+                <div>
+                  <h4 className="text-sm font-semibold text-yellow-900 mb-1">
+                    Cannot Delete: Allocated Names Exist
+                  </h4>
+                  <p className="text-sm text-yellow-800">
+                    This client has <strong className="font-bold">{allocatedCount} allocated (unclaimed) payout name(s)</strong>.
+                  </p>
+                  <p className="text-sm text-yellow-800 mt-1">
+                    Clients with allocated names cannot be deleted unless all names are de-allocated first. Please use "Unassign Payout Names" in Quick Actions to return them to the pool.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Normal Delete Warning */}
+          {canDelete && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+              <div className="flex">
+                <ExclamationTriangleIcon className="h-5 w-5 text-red-400 mt-0.5 mr-3 flex-shrink-0" />
+                <div>
+                  <h4 className="text-sm font-medium text-red-800 mb-1">
+                    Warning: This action is permanent
+                  </h4>
+                  <ul className="text-sm text-red-700 space-y-1">
+                    <li>• The client account and subaccounts will be deleted</li>
+                    <li>• The client has 0 allocated and 0 claimed names</li>
+                    <li>• This action cannot be reversed</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Admin Warning */}
           {isLastAdmin && (
@@ -124,7 +185,7 @@ function DeleteUserModal({ isOpen, onClose, client }) {
                   </h4>
                   <p className="text-sm text-yellow-700">
                     This is an admin account. Make sure there are other admin
-                    accounts available to manage the system before proceeding.
+                    accounts available before proceeding.
                   </p>
                 </div>
               </div>
@@ -134,84 +195,69 @@ function DeleteUserModal({ isOpen, onClose, client }) {
           {/* User Information */}
           <div className="bg-gray-50 rounded-lg p-4">
             <h4 className="text-sm font-medium text-gray-900 mb-3">
-              User to be deleted:
+              User Details:
             </h4>
-            <div className="space-y-2">
+            <div className="space-y-2 text-sm">
               <div className="flex justify-between">
-                <span className="text-sm text-gray-600">Name:</span>
-                <span className="text-sm font-medium text-gray-900">
-                  {clientName}
+                <span className="text-gray-600">Name:</span>
+                <span className="font-medium text-gray-900">{clientName}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Email:</span>
+                <span className="font-medium text-gray-900">{client.email}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Claimed Names:</span>
+                <span className={`font-semibold ${claimedCount > 0 ? "text-amber-600" : "text-gray-700"}`}>
+                  {claimedCount}
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-sm text-gray-600">Email:</span>
-                <span className="text-sm font-medium text-gray-900">
-                  {client.email}
+                <span className="text-gray-600">Allocated (Unclaimed):</span>
+                <span className={`font-semibold ${allocatedCount > 0 ? "text-yellow-600" : "text-gray-700"}`}>
+                  {allocatedCount}
                 </span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-sm text-gray-600">Role:</span>
-                <span
-                  className={`text-sm font-medium ${
-                    client.role === "admin"
-                      ? "text-purple-600"
-                      : "text-blue-600"
-                  }`}
-                >
-                  {client.role === "admin" ? "Admin" : "Client"}
-                </span>
-              </div>
-              {client.role === "client" && (
-                <div className="flex justify-between">
-                  <span className="text-sm text-gray-600">Balance:</span>
-                  <span className="text-sm font-medium text-green-600">
-                    ${client.balance?.toFixed(2) || "0.00"}
-                  </span>
-                </div>
-              )}
             </div>
           </div>
 
-          {/* Confirmation Input */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Type{" "}
-              <span className="font-bold text-red-600">{client.email}</span> to
-              confirm deletion:
-            </label>
-            <input
-              type="text"
-              value={confirmationText}
-              onChange={(e) => setConfirmationText(e.target.value)}
-              className={`w-full px-4 py-3 border rounded-lg bg-white focus:outline-none focus:ring-2 transition-all duration-200 ${
-                confirmationText && !isConfirmationValid
-                  ? "border-red-300 focus:ring-red-500"
-                  : confirmationText && isConfirmationValid
-                  ? "border-green-300 focus:ring-green-500"
-                  : "border-gray-300 focus:ring-primary"
-              }`}
-              placeholder="Enter email address to confirm"
-            />
-            {confirmationText && !isConfirmationValid && (
-              <p className="mt-2 text-sm text-red-600">
-                Email address doesn't match. Please type exactly: {client.email}
+          {/* Confirmation Input - Only enabled if canDelete */}
+          {canDelete ? (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Type <span className="font-bold text-red-600">{client.email}</span> to confirm deletion:
+              </label>
+              <input
+                type="text"
+                value={confirmationText}
+                onChange={(e) => setConfirmationText(e.target.value)}
+                className={`w-full px-4 py-3 border rounded-lg bg-white focus:outline-none focus:ring-2 transition-all duration-200 ${
+                  confirmationText && !isConfirmationValid
+                    ? "border-red-300 focus:ring-red-500"
+                    : confirmationText && isConfirmationValid
+                    ? "border-green-300 focus:ring-green-500"
+                    : "border-gray-300 focus:ring-primary"
+                }`}
+                placeholder="Enter email address to confirm"
+              />
+              {confirmationText && !isConfirmationValid && (
+                <p className="mt-2 text-sm text-red-600">
+                  Email address doesn't match. Please type exactly: {client.email}
+                </p>
+              )}
+              {confirmationText && isConfirmationValid && (
+                <p className="mt-2 text-sm text-green-600">
+                  ✓ Confirmation matched
+                </p>
+              )}
+            </div>
+          ) : (
+            <div className="bg-gray-100 rounded-lg p-3 text-center">
+              <p className="text-xs text-gray-600">
+                Deletion is disabled until all criteria are satisfied.
               </p>
-            )}
-            {confirmationText && isConfirmationValid && (
-              <p className="mt-2 text-sm text-green-600">
-                ✓ Confirmation matched
-              </p>
-            )}
-          </div>
-
-          {/* Final Warning */}
-          <div className="bg-gray-100 rounded-lg p-3">
-            <p className="text-xs text-gray-600 text-center">
-              <strong>Note:</strong> This action will deactivate the user
-              account. The user will no longer be able to login, but their data
-              will be preserved for historical and audit purposes.
-            </p>
-          </div>
+            </div>
+          )}
 
           {/* Form Actions */}
           <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
@@ -220,25 +266,27 @@ function DeleteUserModal({ isOpen, onClose, client }) {
               onClick={handleClose}
               className="px-6 py-3 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors duration-200"
             >
-              Cancel
+              {canDelete ? "Cancel" : "Close"}
             </button>
-            <button
-              onClick={handleDelete}
-              disabled={!isConfirmationValid || deleteUserMutation.isLoading}
-              className="px-6 py-3 bg-red-600 hover:bg-red-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-semibold rounded-lg transition-all duration-200 flex items-center"
-            >
-              {deleteUserMutation.isLoading ? (
-                <>
-                  <div className="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full mr-2"></div>
-                  Deleting...
-                </>
-              ) : (
-                <>
-                  <TrashIcon className="h-5 w-5 mr-2" />
-                  Delete User
-                </>
-              )}
-            </button>
+            {canDelete && (
+              <button
+                onClick={handleDelete}
+                disabled={!isConfirmationValid || deleteUserMutation.isPending}
+                className="px-6 py-3 bg-red-600 hover:bg-red-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-semibold rounded-lg transition-all duration-200 flex items-center"
+              >
+                {deleteUserMutation.isPending ? (
+                  <>
+                    <div className="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full mr-2"></div>
+                    Deleting...
+                  </>
+                ) : (
+                  <>
+                    <TrashIcon className="h-5 w-5 mr-2" />
+                    Delete User
+                  </>
+                )}
+              </button>
+            )}
           </div>
         </div>
       </div>

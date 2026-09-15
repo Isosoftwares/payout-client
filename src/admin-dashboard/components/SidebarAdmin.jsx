@@ -52,6 +52,14 @@ const SidebarAdmin = ({ setSideNav, sideNav }) => {
     refetchOnWindowFocus: true,
   });
 
+  const { data: specificRequestsData } = useQuery({
+    queryKey: ["admin-specific-requests-polling"],
+    queryFn: () => axios.get("/payout-names/specific-requests?status=pending&limit=1"),
+    refetchInterval: 10000,
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
+  });
+
   const unattendedPayoutNames = accountsData?.data?.data?.data?.filter(
     (acc) => acc.status === "pending_bank_details" || acc.status === "pending"
   ).length || 0;
@@ -60,7 +68,9 @@ const SidebarAdmin = ({ setSideNav, sideNav }) => {
     (req) => req.status === "pending"
   ).length || 0;
 
-  const unattendedAllocationRequests = allocationRequestsData?.data?.total || 0;
+  const unattendedBulk = allocationRequestsData?.data?.total || 0;
+  const unattendedSpecific = specificRequestsData?.data?.total || 0;
+  const unattendedAllocationRequests = unattendedBulk + unattendedSpecific;
 
   const closeSidebar = () => {
     setSideNav(false);

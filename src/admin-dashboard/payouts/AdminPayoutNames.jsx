@@ -7,13 +7,22 @@ import { MagnifyingGlassIcon, ArrowUpTrayIcon, TrashIcon } from '@heroicons/reac
 export default function AdminPayoutNames() {
   const axios = useAxiosPrivate();
   const queryClient = useQueryClient();
+
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [file, setFile] = useState(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [allocateToClientId, setAllocateToClientId] = useState('');
   const [uploadReport, setUploadReport] = useState(null);
-
   const [page, setPage] = useState(1);
   const [limit] = useState(10);
+
+  // Clients for optional pre-allocation dropdown
+  const { data: clientsData } = useQuery({
+    queryKey: ['admin-clients-dropdown'],
+    queryFn: () => axios.get('/users?role=client&limit=1000'),
+  });
+  const clients = clientsData?.data?.data?.users || [];
 
   const { data: payoutNamesData, isLoading } = useQuery({
     queryKey: ['admin-payout-names', page, limit, searchTerm, statusFilter],
@@ -36,11 +45,14 @@ export default function AdminPayoutNames() {
       toast.success(res.data.message);
       setUploadReport(res.data.report);
       queryClient.invalidateQueries(['admin-payout-names']);
+      queryClient.invalidateQueries(['admin-clients']);
+      queryClient.invalidateQueries(['admin-allocation-requests']);
       setFile(null);
-      // reset file input
-      document.getElementById('csv-upload').value = '';
+      setAllocateToClientId('');
+      const input = document.getElementById('csv-upload');
+      if (input) input.value = '';
     },
-    onError: (err) => toast.error(err?.response?.data?.message || 'Failed to upload CSV'),
+    onError: (err) => toast.error(err?.response?.data?.message || 'Failed to upload file'),
   });
 
   const handleUpload = (e) => {
@@ -48,7 +60,45 @@ export default function AdminPayoutNames() {
     if (!file) return;
     const formData = new FormData();
     formData.append('file', file);
+    if (allocateToClientId) {
+      formData.append('allocateToClientId', allocateToClientId);
+    }
     uploadFile(formData);
+  };
+
+  const handleDragEnter = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    e.dataTransfer.dropEffect = 'copy';
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.currentTarget.contains(e.relatedTarget)) return;
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      const droppedFile = e.dataTransfer.files[0];
+      const ext = droppedFile.name.split('.').pop().toLowerCase();
+      if (['csv', 'xlsx', 'xls'].includes(ext)) {
+        setFile(droppedFile);
+      } else {
+        toast.error('Please upload a CSV or Excel (.xlsx, .xls) file');
+      }
+    }
   };
 
   const { mutate: deletePayoutName, isPending: isDeleting } = useMutation({
@@ -73,34 +123,64 @@ export default function AdminPayoutNames() {
   };
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8">
+    <div className="p-4 sm:p-6 lg:p-8" onDragOver={(e) => e.preventDefault()} onDrop={(e) => e.preventDefault()}>
       <div className="sm:flex sm:items-center">
         <div className="sm:flex-auto">
           <h1 className="text-2xl font-bold text-gray-900">Payout Names Inventory</h1>
           <p className="mt-2 text-sm text-gray-700">
-            Manage the pool of payout names available for clients. Upload a CSV file to add new names.
+            Manage the pool of payout names available for clients, upload new batches via CSV or Excel, and inspect or pre-allocate names.
           </p>
         </div>
       </div>
 
       <div className="mt-6 bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-        <h2 className="text-lg font-medium text-gray-900 mb-4">Upload Payout Names (CSV)</h2>
+        <h2 className="text-lg font-medium text-gray-900 mb-4">Upload Payout Names (CSV or Excel)</h2>
         <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
-          <form onSubmit={handleUpload} className="flex-1 max-w-2xl">
+          <form onSubmit={handleUpload} onDragOver={(e) => e.preventDefault()} onDrop={(e) => e.preventDefault()} className="flex-1 max-w-2xl space-y-4">
+            {/* Optional Allocation Dropdown */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Allocate to Client (Optional)
+              </label>
+              <select
+                value={allocateToClientId}
+                onChange={(e) => setAllocateToClientId(e.target.value)}
+                className="block w-full py-2.5 px-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white shadow-sm"
+              >
+                <option value="">-- Available Pool (No client pre-allocation) --</option>
+                {clients.map((c) => (
+                  <option key={c._id} value={c._id}>
+                    {c.profile?.firstName ? `${c.profile.firstName} ${c.profile.lastName || ''} (${c.email})` : c.email}
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-gray-500 mt-1">
+                Select a client if you want all uploaded names in this batch to be pre-allocated to them so they can claim them at will.
+              </p>
+            </div>
+
             <div className="flex items-center gap-4">
               <label 
                 htmlFor="csv-upload"
-                className="flex-1 flex justify-center w-full px-4 py-6 border-2 border-dashed border-gray-300 rounded-lg hover:border-blue-500 hover:bg-blue-50 cursor-pointer transition-colors"
+                onDragEnter={handleDragEnter}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+                className={`flex-1 flex justify-center w-full px-4 py-6 border-2 border-dashed rounded-lg cursor-pointer transition-all ${
+                  isDragging 
+                    ? 'border-blue-500 bg-blue-100 ring-2 ring-blue-400 scale-[1.01]' 
+                    : 'border-gray-300 hover:border-blue-500 hover:bg-blue-50'
+                }`}
               >
-                <div className="space-y-1 text-center">
-                  <ArrowUpTrayIcon className="mx-auto h-8 w-8 text-gray-400" />
+                <div className="space-y-1 text-center pointer-events-none">
+                  <ArrowUpTrayIcon className={`mx-auto h-8 w-8 ${isDragging ? 'text-blue-600 animate-bounce' : 'text-gray-400'}`} />
                   <div className="text-sm text-gray-600">
                     <span className="font-medium text-blue-600 hover:text-blue-500">
                       Upload a file
                     </span>{' '}
                     or drag and drop
                   </div>
-                  <p className="text-xs text-gray-500">CSV up to 10MB</p>
+                  <p className="text-xs text-gray-500">CSV or Excel (.xlsx, .xls) up to 10MB</p>
                   {file && (
                     <p className="text-sm font-semibold text-green-600 mt-2">
                       Selected: {file.name}
@@ -109,8 +189,8 @@ export default function AdminPayoutNames() {
                 </div>
                 <input 
                   type="file" 
-                  id="csv-upload"
-                  accept=".csv"
+                  id="csv-upload" 
+                  accept=".csv, .xlsx, .xls, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel"
                   className="sr-only"
                   onChange={(e) => setFile(e.target.files[0])}
                 />
@@ -126,7 +206,7 @@ export default function AdminPayoutNames() {
           </form>
           <div className="flex-shrink-0">
             <a 
-              href="data:text/csv;charset=utf-8,Name,Routing Number,Account Number%0AJohn Doe,123456789,987654321%0AJane Smith,987654321,123456789"
+              href="data:text/csv;charset=utf-8,Name,Routing Number,Account Number,Client Email%0AJohn Doe,123456789,987654321,%0AJane Smith,987654321,123456789,"
               download="payout_names_sample.csv"
               className="inline-flex items-center text-sm font-medium text-blue-600 hover:text-blue-800 underline"
             >
@@ -140,7 +220,10 @@ export default function AdminPayoutNames() {
             <h3 className="font-semibold text-gray-900">Upload Report</h3>
             <ul className="mt-2 text-sm text-gray-600 space-y-1">
               <li>Total Processed: {uploadReport.totalProcessed}</li>
-              <li className="text-green-600">Successfully Added: {uploadReport.added}</li>
+              <li className="text-green-600 font-medium">Successfully Added: {uploadReport.added}</li>
+              {uploadReport.allocatedTo && (
+                <li className="text-blue-600 font-medium">Pre-Allocated To: {uploadReport.allocatedTo}</li>
+              )}
               <li className="text-yellow-600">Duplicates Skipped: {uploadReport.duplicates}</li>
             </ul>
             {uploadReport.errors && uploadReport.errors.length > 0 && (
@@ -194,7 +277,7 @@ export default function AdminPayoutNames() {
                     <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Name</th>
                     <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Routing Number</th>
                     <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Account Number</th>
-                    <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Status</th>
+                    <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Status / Allocation</th>
                     <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Amount</th>
                     <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Payment Status</th>
                     <th className="relative py-3.5 pl-3 pr-4 sm:pr-6"><span className="sr-only">Actions</span></th>
@@ -202,9 +285,9 @@ export default function AdminPayoutNames() {
                 </thead>
                 <tbody className="divide-y divide-gray-200 bg-white">
                   {isLoading ? (
-                    <tr><td colSpan="6" className="p-4 text-center">Loading...</td></tr>
+                    <tr><td colSpan="7" className="p-4 text-center">Loading...</td></tr>
                   ) : payoutNames.length === 0 ? (
-                    <tr><td colSpan="6" className="p-4 text-center">No names found.</td></tr>
+                    <tr><td colSpan="7" className="p-4 text-center">No names found.</td></tr>
                   ) : (
                     payoutNames.map((item) => (
                       <tr key={item._id}>
@@ -224,6 +307,16 @@ export default function AdminPayoutNames() {
                               'bg-blue-100 text-blue-800'}`}>
                             {item.status.charAt(0).toUpperCase() + item.status.slice(1)}
                           </span>
+                          {item.allocatedTo && (
+                            <div className="text-xs text-gray-500 mt-0.5 truncate max-w-xs" title={item.allocatedTo.email}>
+                              {item.allocatedTo.profile?.firstName ? `${item.allocatedTo.profile.firstName} (${item.allocatedTo.email})` : item.allocatedTo.email}
+                            </div>
+                          )}
+                          {item.claimedForSubaccount && (
+                            <div className="text-xs text-blue-600 font-medium">
+                              Subaccount: {item.claimedForSubaccount.username}
+                            </div>
+                          )}
                         </td>
                         <td className="whitespace-nowrap px-3 py-4 text-sm font-medium text-gray-900">
                           ${item.amount?.toFixed(2) || '0.00'}
@@ -232,7 +325,7 @@ export default function AdminPayoutNames() {
                           <span className={`inline-flex rounded-full px-2 text-xs font-semibold leading-5 
                             ${item.paymentStatus === 'not_received' ? 'bg-gray-100 text-gray-800' : 
                               item.paymentStatus === 'received' ? 'bg-blue-100 text-blue-800' : 
-                              item.paymentStatus === 'matured' ? 'bg-green-100 text-green-800' :
+                              item.paymentStatus === 'matured' ? 'bg-green-100 text-green-800' : 
                               'bg-purple-100 text-purple-800'}`}>
                             {item.paymentStatus ? item.paymentStatus.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase()) : 'Not Received'}
                           </span>
@@ -240,9 +333,9 @@ export default function AdminPayoutNames() {
                         <td className="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
                           <button
                             onClick={() => handleDelete(item._id)}
-                            disabled={isDeleting}
-                            className="text-red-600 hover:text-red-900 disabled:opacity-50"
-                            title="Delete"
+                            disabled={isDeleting || item?.allocatedTo || item?.claimedForSubaccount}
+                            className={`text-red-600 hover:text-red-900 disabled:opacity-50 ${item?.allocatedTo || item?.claimedForSubaccount ? 'cursor-not-allowed' : 'cursor-pointer'}`}
+                            title={item?.allocatedTo || item?.claimedForSubaccount ? "Cannot delete allocated or claimed payout names" : "Delete"}
                           >
                             <TrashIcon className="h-5 w-5" />
                           </button>

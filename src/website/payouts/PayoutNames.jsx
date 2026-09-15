@@ -9,12 +9,16 @@ export default function PayoutNames() {
   const axios = useAxiosPrivate();
   const queryClient = useQueryClient();
   const [showRequestModal, setShowRequestModal] = useState(false);
+  const [showSpecificRequestModal, setShowSpecificRequestModal] = useState(false);
+  const [historyTab, setHistoryTab] = useState('specific'); // 'specific' or 'bulk'
   const [page, setPage] = useState(1);
   const [limit] = useState(6);
+  const [specificPage, setSpecificPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
   const [subaccountFilter, setSubaccountFilter] = useState('');
   const [selectedNames, setSelectedNames] = useState(new Set());
   const { register, handleSubmit, reset, formState: { errors } } = useForm();
+  const { register: registerSpecific, handleSubmit: handleSpecificSubmit, reset: resetSpecific, formState: { errors: specificErrors } } = useForm();
 
   const { data: inventoryData, isLoading: isLoadingInventory } = useQuery({
     queryKey: ['client-inventory', searchTerm, subaccountFilter],
@@ -29,6 +33,12 @@ export default function PayoutNames() {
     onError: (err) => toast.error('Failed to load requests'),
   });
 
+  const { data: specificRequestsData, isLoading: isLoadingSpecific } = useQuery({
+    queryKey: ['client-specific-requests', specificPage],
+    queryFn: () => axios.get(`/payout-names/specific-requests/me?page=${specificPage}&limit=6`),
+    keepPreviousData: true,
+  });
+
   const { data: subaccountsData } = useQuery({
     queryKey: ['subaccounts'],
     queryFn: () => axios.get('/subaccounts'),
@@ -39,6 +49,10 @@ export default function PayoutNames() {
   const requests = requestsData?.data?.data || [];
   const totalPages = requestsData?.data?.pages || 1;
   const totalItems = requestsData?.data?.total || 0;
+
+  const specificRequests = specificRequestsData?.data?.data || [];
+  const totalSpecificPages = specificRequestsData?.data?.pages || 1;
+  const totalSpecificItems = specificRequestsData?.data?.total || 0;
 
   const allocatedCount = inventoryData?.data?.data?.allocatedCount || 0;
   const claimedNames = inventoryData?.data?.data?.claimedNames || [];
@@ -52,6 +66,17 @@ export default function PayoutNames() {
       reset();
     },
     onError: (err) => toast.error(err?.response?.data?.message || 'Failed to request allocation'),
+  });
+
+  const { mutate: requestSpecificName, isPending: isRequestingSpecific } = useMutation({
+    mutationFn: (data) => axios.post('/payout-names/specific-request', data),
+    onSuccess: (res) => {
+      toast.success(res?.data?.message || 'Specific name requested successfully');
+      queryClient.invalidateQueries(['client-specific-requests']);
+      setShowSpecificRequestModal(false);
+      resetSpecific();
+    },
+    onError: (err) => toast.error(err?.response?.data?.message || 'Failed to request specific name'),
   });
 
   const [showClaimModal, setShowClaimModal] = useState(false);
@@ -71,6 +96,12 @@ export default function PayoutNames() {
   const handlePageChange = (newPage) => {
     if (newPage > 0 && newPage <= totalPages) {
       setPage(newPage);
+    }
+  };
+
+  const handleSpecificPageChange = (newPage) => {
+    if (newPage > 0 && newPage <= totalSpecificPages) {
+      setSpecificPage(newPage);
     }
   };
 
@@ -149,10 +180,16 @@ export default function PayoutNames() {
             Claim Names
           </button>
           <button
+            onClick={() => setShowSpecificRequestModal(true)}
+            className="px-4 py-2 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 whitespace-nowrap text-sm shadow-sm transition-colors"
+          >
+            Request Specific Name
+          </button>
+          <button
             onClick={() => setShowRequestModal(true)}
             className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 whitespace-nowrap text-sm shadow-sm transition-colors"
           >
-            Request New Allocation
+            Request Bulk Allocation
           </button>
         </div>
       </div>
@@ -275,110 +312,242 @@ export default function PayoutNames() {
 
         {/* Requests History Section */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col h-full">
-          <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
-            <h2 className="text-lg font-semibold text-gray-900">Allocation Requests History</h2>
-            <p className="text-xs text-gray-500">Track the status of your requested names.</p>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Date</th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Requested</th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {isLoadingRequests ? (
-                  <tr><td colSpan="3" className="p-6 text-center text-gray-500">Loading requests...</td></tr>
-                ) : requests.length === 0 ? (
-                  <tr><td colSpan="3" className="p-6 text-center text-gray-500">No requests found.</td></tr>
-                ) : (
-                  requests.map(req => (
-                    <tr key={req._id}>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {new Date(req.createdAt).toLocaleDateString()}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                        {req.requestedCount}
-                        {req.status === 'approved' && req.allocatedCount !== req.requestedCount && (
-                          <span className="text-gray-500 ml-1">(Granted: {req.allocatedCount})</span>
-                        )}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${
-                          req.status === 'approved' ? 'bg-green-100 text-green-800' :
-                          req.status === 'rejected' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800'
-                        }`}>
-                          {req.status.charAt(0).toUpperCase() + req.status.slice(1)}
-                        </span>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-          {/* ... pagination goes here (keeping the logic below) */}
-
-      {totalPages > 1 && (
-        <div className="flex items-center justify-between bg-white px-4 py-3 sm:px-6 rounded-xl shadow-sm border border-gray-200">
-          <div className="flex flex-1 justify-between sm:hidden">
-            <button
-              onClick={() => handlePageChange(page - 1)}
-              disabled={page === 1}
-              className={`relative inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium ${page === 1 ? 'text-gray-300 cursor-not-allowed' : 'text-gray-700 hover:bg-gray-50'}`}
-            >
-              Previous
-            </button>
-            <button
-              onClick={() => handlePageChange(page + 1)}
-              disabled={page === totalPages}
-              className={`relative ml-3 inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium ${page === totalPages ? 'text-gray-300 cursor-not-allowed' : 'text-gray-700 hover:bg-gray-50'}`}
-            >
-              Next
-            </button>
-          </div>
-          <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
+          <div className="px-6 py-4 border-b border-gray-200 bg-gray-50 flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-700">
-                Showing <span className="font-medium">{(page - 1) * limit + 1}</span> to <span className="font-medium">{Math.min(page * limit, totalItems)}</span> of{' '}
-                <span className="font-medium">{totalItems}</span> results
-              </p>
+              <h2 className="text-lg font-semibold text-gray-900">Requests History</h2>
+              <p className="text-xs text-gray-500">Track the status of your specific and bulk requests.</p>
             </div>
-            <div>
-              <nav className="isolate inline-flex -space-x-px rounded-md shadow-sm" aria-label="Pagination">
+            <div className="flex bg-gray-200 p-1 rounded-lg">
+              <button
+                type="button"
+                onClick={() => setHistoryTab('specific')}
+                className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
+                  historyTab === 'specific'
+                    ? 'bg-white text-gray-900 shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                Specific Names
+              </button>
+              <button
+                type="button"
+                onClick={() => setHistoryTab('bulk')}
+                className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
+                  historyTab === 'bulk'
+                    ? 'bg-white text-gray-900 shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                Bulk Allocations
+              </button>
+            </div>
+          </div>
+
+          <div className="overflow-x-auto flex-1">
+            {historyTab === 'specific' ? (
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Date</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Requested Name</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Target</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {isLoadingSpecific ? (
+                    <tr><td colSpan="4" className="p-6 text-center text-gray-500">Loading specific requests...</td></tr>
+                  ) : specificRequests.length === 0 ? (
+                    <tr><td colSpan="4" className="p-6 text-center text-gray-500">No specific name requests yet. Click "Request Specific Name" to start!</td></tr>
+                  ) : (
+                    specificRequests.map(req => (
+                      <tr key={req._id} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {new Date(req.createdAt).toLocaleDateString()}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
+                          {req.requestedName}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {req.subaccount ? (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-50 text-blue-700">
+                              Subaccount: {req.subaccount.username}
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-700">
+                              Self (Main)
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${
+                            req.status === 'approved' ? 'bg-green-100 text-green-800' :
+                            req.status === 'rejected' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800'
+                          }`}>
+                            {req.status.charAt(0).toUpperCase() + req.status.slice(1)}
+                          </span>
+                          {req.status === 'rejected' && req.adminNote && (
+                            <div className="text-xs text-red-500 mt-1 max-w-xs truncate" title={req.adminNote}>
+                              Reason: {req.adminNote}
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            ) : (
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Date</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Requested Count</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {isLoadingRequests ? (
+                    <tr><td colSpan="3" className="p-6 text-center text-gray-500">Loading requests...</td></tr>
+                  ) : requests.length === 0 ? (
+                    <tr><td colSpan="3" className="p-6 text-center text-gray-500">No requests found.</td></tr>
+                  ) : (
+                    requests.map(req => (
+                      <tr key={req._id}>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {new Date(req.createdAt).toLocaleDateString()}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                          {req.requestedCount}
+                          {req.status === 'approved' && req.allocatedCount !== req.requestedCount && (
+                            <span className="text-gray-500 ml-1">(Granted: {req.allocatedCount})</span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${
+                            req.status === 'approved' ? 'bg-green-100 text-green-800' :
+                            req.status === 'rejected' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800'
+                          }`}>
+                            {req.status.charAt(0).toUpperCase() + req.status.slice(1)}
+                          </span>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            )}
+          </div>
+
+          {/* Pagination bar for requests card */}
+          {historyTab === 'specific' && totalSpecificPages > 1 && (
+            <div className="px-6 py-3 bg-gray-50 border-t border-gray-200 flex items-center justify-between text-sm">
+              <span className="text-gray-600">Page {specificPage} of {totalSpecificPages}</span>
+              <div className="space-x-2">
                 <button
+                  type="button"
+                  onClick={() => handleSpecificPageChange(specificPage - 1)}
+                  disabled={specificPage === 1}
+                  className="px-3 py-1 bg-white border border-gray-300 rounded text-xs font-medium disabled:opacity-50"
+                >
+                  Prev
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSpecificPageChange(specificPage + 1)}
+                  disabled={specificPage === totalSpecificPages}
+                  className="px-3 py-1 bg-white border border-gray-300 rounded text-xs font-medium disabled:opacity-50"
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          )}
+
+          {historyTab === 'bulk' && totalPages > 1 && (
+            <div className="px-6 py-3 bg-gray-50 border-t border-gray-200 flex items-center justify-between text-sm">
+              <span className="text-gray-600">Page {page} of {totalPages}</span>
+              <div className="space-x-2">
+                <button
+                  type="button"
                   onClick={() => handlePageChange(page - 1)}
                   disabled={page === 1}
-                  className={`relative inline-flex items-center rounded-l-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0 ${page === 1 ? 'cursor-not-allowed opacity-50' : ''}`}
+                  className="px-3 py-1 bg-white border border-gray-300 rounded text-xs font-medium disabled:opacity-50"
                 >
-                  <span className="sr-only">Previous</span>
-                  <ChevronLeftIcon className="h-5 w-5" aria-hidden="true" />
+                  Prev
                 </button>
-                
-                {[...Array(totalPages)].map((_, idx) => (
-                  <button
-                    key={idx + 1}
-                    onClick={() => handlePageChange(idx + 1)}
-                    className={`relative inline-flex items-center px-4 py-2 text-sm font-semibold ${page === idx + 1 ? 'z-10 bg-blue-600 text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600' : 'text-gray-900 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0'}`}
-                  >
-                    {idx + 1}
-                  </button>
-                ))}
-
                 <button
+                  type="button"
                   onClick={() => handlePageChange(page + 1)}
                   disabled={page === totalPages}
-                  className={`relative inline-flex items-center rounded-r-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0 ${page === totalPages ? 'cursor-not-allowed opacity-50' : ''}`}
+                  className="px-3 py-1 bg-white border border-gray-300 rounded text-xs font-medium disabled:opacity-50"
                 >
-                  <span className="sr-only">Next</span>
-                  <ChevronRightIcon className="h-5 w-5" aria-hidden="true" />
+                  Next
                 </button>
-              </nav>
+              </div>
             </div>
+          )}
+        </div>
+      </div>
+
+      {/* Specific Name Request Modal */}
+      {showSpecificRequestModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6">
+            <h2 className="text-xl font-bold mb-2 text-gray-900">Request Specific Payout Name</h2>
+            <p className="text-sm text-gray-500 mb-4">
+              Enter the exact name you want. Once confirmed with bank details by an admin, it will be added directly to your claimed inventory.
+            </p>
+            <form onSubmit={handleSpecificSubmit((d) => requestSpecificName(d))} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Requested Name <span className="text-red-500">*</span></label>
+                <input 
+                  type="text"
+                  placeholder="e.g. Acme Global Services"
+                  {...registerSpecific('requestedName', { 
+                    required: "Name is required", 
+                    minLength: { value: 2, message: "Minimum 2 characters" } 
+                  })} 
+                  className="w-full mt-1 px-3 py-2 border rounded-md focus:ring-2 focus:ring-indigo-500 focus:outline-none" 
+                />
+                {specificErrors.requestedName && (
+                  <span className="text-xs text-red-500 mt-1 block">{specificErrors.requestedName.message}</span>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Assign To (Subaccount) <span className="text-red-500">*</span></label>
+                <select
+                  {...registerSpecific('subaccountId')}
+                  className="w-full mt-1 px-3 py-2 border rounded-md bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                >
+                  <option value="self">Self (Main Account)</option>
+                  {subaccounts.map(sub => (
+                    <option key={sub._id} value={sub._id}>
+                      Subaccount: {sub.username}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-xs text-gray-400 mt-1">Select whether this name is for yourself or one of your subaccounts.</p>
+              </div>
+
+              <div className="flex justify-end gap-3 mt-6 border-t pt-4">
+                <button 
+                  type="button" 
+                  onClick={() => { setShowSpecificRequestModal(false); resetSpecific(); }} 
+                  className="px-4 py-2 text-gray-600 bg-gray-100 rounded-md hover:bg-gray-200 text-sm font-medium"
+                >
+                  Cancel
+                </button>
+                <button 
+                  type="submit" 
+                  disabled={isRequestingSpecific} 
+                  className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 text-sm font-medium disabled:opacity-50"
+                >
+                  {isRequestingSpecific ? 'Submitting Request...' : 'Submit Request'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

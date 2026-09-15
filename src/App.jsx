@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import "react-toastify/dist/ReactToastify.css";
 import { ToastContainer } from "react-toastify";
 import { QueryClientProvider, QueryClient } from "@tanstack/react-query";
@@ -52,6 +53,21 @@ function App() {
   });
 
   useScrollToTop();
+
+  useEffect(() => {
+    const handleGlobalDragOver = (e) => {
+      e.preventDefault();
+    };
+    const handleGlobalDrop = (e) => {
+      e.preventDefault();
+    };
+    window.addEventListener("dragover", handleGlobalDragOver);
+    window.addEventListener("drop", handleGlobalDrop);
+    return () => {
+      window.removeEventListener("dragover", handleGlobalDragOver);
+      window.removeEventListener("drop", handleGlobalDrop);
+    };
+  }, []);
 
   return (
     <div className="relative">

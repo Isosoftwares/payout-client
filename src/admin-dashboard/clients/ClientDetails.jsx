@@ -24,6 +24,8 @@ import {
   CheckBadgeIcon,
   DevicePhoneMobileIcon,
   BanknotesIcon,
+  KeyIcon,
+  NoSymbolIcon,
 } from "@heroicons/react/24/outline";
 import useAuth from "../../hooks/useAuth";
 
@@ -37,11 +39,35 @@ function ClientDetails() {
   // Modal states
   const [showUpdateModal, setShowUpdateModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showResetPasswordModal, setShowResetPasswordModal] = useState(false);
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [showUnassignModal, setShowUnassignModal] = useState(false);
   const [assignCount, setAssignCount] = useState(1);
   const [unassignCount, setUnassignCount] = useState(1);
   const queryClient = useQueryClient();
+
+  const { mutate: resetPassword, isPending: isResettingPassword } = useMutation({
+    mutationFn: () => axios.post(`/users/${_id}/reset-password`),
+    onSuccess: (res) => {
+      toast.success(res?.data?.message || 'Password successfully reset to 123456');
+      setShowResetPasswordModal(false);
+    },
+    onError: (err) => {
+      toast.error(err?.response?.data?.message || 'Failed to reset password');
+    },
+  });
+
+  const { mutate: toggleSuspend, isPending: isSuspending } = useMutation({
+    mutationFn: () => axios.post(`/users/${_id}/toggle-suspend`),
+    onSuccess: (res) => {
+      toast.success(res?.data?.message || 'Account status updated');
+      queryClient.invalidateQueries(["client", _id]);
+      queryClient.invalidateQueries(["clients"]);
+    },
+    onError: (err) => {
+      toast.error(err?.response?.data?.message || 'Failed to update account status');
+    },
+  });
 
   const { mutate: assignNames, isPending: isAssigning } = useMutation({
     mutationFn: (data) => axios.post('/payout-names/assign', data),
@@ -338,10 +364,10 @@ function ClientDetails() {
 
                   <div className="flex items-center space-x-3">
                     <div className="h-5 w-5 flex items-center justify-center">
-                      {client?.isActive ? (
+                      {client?.isActive && !client?.isSuspended ? (
                         <CheckCircleIcon className="h-5 w-5 text-green-500" />
                       ) : (
-                        <XCircleIcon className="h-5 w-5 text-red-500" />
+                        <NoSymbolIcon className="h-5 w-5 text-amber-500" />
                       )}
                     </div>
                     <div>
@@ -349,11 +375,13 @@ function ClientDetails() {
                         Account Status
                       </div>
                       <div
-                        className={`font-medium ${
-                          client?.isActive ? "text-green-600" : "text-red-600"
+                        className={`font-semibold ${
+                          client?.isActive && !client?.isSuspended
+                            ? "text-green-600"
+                            : "text-amber-600"
                         }`}
                       >
-                        {client?.isActive ? "Active" : "Inactive"}
+                        {client?.isActive && !client?.isSuspended ? "Active" : "Suspended"}
                       </div>
                     </div>
                   </div>
@@ -446,13 +474,13 @@ function ClientDetails() {
                     Status
                   </span>
                   <span
-                    className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
-                      client?.isActive
+                    className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${
+                      client?.isActive && !client?.isSuspended
                         ? "bg-green-100 text-green-800"
-                        : "bg-red-100 text-red-800"
+                        : "bg-amber-100 text-amber-800"
                     }`}
                   >
-                    {client?.isActive ? "Active" : "Inactive"}
+                    {client?.isActive && !client?.isSuspended ? "Active" : "Suspended"}
                   </span>
                 </div>
               </div>
@@ -483,38 +511,67 @@ function ClientDetails() {
               </h3>
 
               <div className="space-y-3">
-
                 <button
                   onClick={() => setShowAssignModal(true)}
-                  className="w-full flex items-center justify-center px-4 py-3 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg transition-all duration-200"
+                  className="w-full flex items-center justify-center px-4 py-2.5 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg transition-all duration-200 text-sm shadow-sm"
                 >
-                  <PlusIcon className="h-5 w-5 mr-2" />
+                  <PlusIcon className="h-4 w-4 mr-2" />
                   Assign Payout Names
                 </button>
 
                 <button
                   onClick={() => setShowUnassignModal(true)}
-                  className="w-full flex items-center justify-center px-4 py-3 bg-yellow-600 hover:bg-yellow-700 text-white font-medium rounded-lg transition-all duration-200"
+                  className="w-full flex items-center justify-center px-4 py-2.5 bg-yellow-600 hover:bg-yellow-700 text-white font-medium rounded-lg transition-all duration-200 text-sm shadow-sm"
                 >
-                  <ArrowLeftIcon className="h-5 w-5 mr-2" />
+                  <ArrowLeftIcon className="h-4 w-4 mr-2" />
                   Unassign Payout Names
                 </button>
 
                 <button
                   onClick={() => setShowUpdateModal(true)}
-                  className="w-full flex items-center justify-center px-4 py-3 bg-primary hover:bg-secondary text-white font-medium rounded-lg transition-all duration-200"
+                  className="w-full flex items-center justify-center px-4 py-2.5 bg-primary hover:bg-secondary text-white font-medium rounded-lg transition-all duration-200 text-sm shadow-sm"
                 >
-                  <PencilIcon className="h-5 w-5 mr-2" />
-                  Edit Client
+                  <PencilIcon className="h-4 w-4 mr-2" />
+                  Edit Client Profile
                 </button>
 
-                {/* <button
-                  onClick={() => navigate(`/dashboard/clients/${_id}/history`)}
-                  className="w-full flex items-center justify-center px-4 py-3 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-all duration-200"
+                <button
+                  onClick={() => setShowResetPasswordModal(true)}
+                  className="w-full flex items-center justify-center px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg transition-all duration-200 text-sm shadow-sm"
                 >
-                  <ChartBarIcon className="h-5 w-5 mr-2" />
-                  View History
-                </button> */}
+                  <KeyIcon className="h-4 w-4 mr-2" />
+                  Reset Password (123456)
+                </button>
+
+                <button
+                  onClick={() => toggleSuspend()}
+                  disabled={isSuspending}
+                  className={`w-full flex items-center justify-center px-4 py-2.5 font-medium rounded-lg transition-all duration-200 text-sm shadow-sm text-white ${
+                    client?.isSuspended || !client?.isActive
+                      ? "bg-green-600 hover:bg-green-700"
+                      : "bg-amber-600 hover:bg-amber-700"
+                  }`}
+                >
+                  {client?.isSuspended || !client?.isActive ? (
+                    <>
+                      <CheckCircleIcon className="h-4 w-4 mr-2" />
+                      {isSuspending ? "Activating..." : "Activate Account"}
+                    </>
+                  ) : (
+                    <>
+                      <NoSymbolIcon className="h-4 w-4 mr-2" />
+                      {isSuspending ? "Suspending..." : "Suspend Account"}
+                    </>
+                  )}
+                </button>
+
+                <button
+                  onClick={() => setShowDeleteModal(true)}
+                  className="w-full flex items-center justify-center px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white font-medium rounded-lg transition-all duration-200 text-sm shadow-sm"
+                >
+                  <TrashIcon className="h-4 w-4 mr-2" />
+                  Delete Client
+                </button>
               </div>
             </div>
           </div>
@@ -636,7 +693,61 @@ function ClientDetails() {
         isOpen={showDeleteModal}
         onClose={() => setShowDeleteModal(false)}
         client={client}
+        claimedCount={claimedCount}
+        allocatedCount={allocatedUnclaimedCount}
+        onSuspendInstead={() => toggleSuspend()}
       />
+
+      {/* Reset Password Confirmation Modal */}
+      {showResetPasswordModal && (
+        <div className="fixed inset-0 z-50 overflow-y-auto">
+          <div className="flex min-h-screen items-center justify-center p-4 text-center sm:p-0">
+            <div
+              className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity"
+              onClick={() => setShowResetPasswordModal(false)}
+            ></div>
+            <div className="relative transform overflow-hidden rounded-xl bg-white text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-md p-6">
+              <div className="flex items-center space-x-3 mb-4">
+                <div className="w-10 h-10 bg-indigo-100 rounded-full flex items-center justify-center">
+                  <KeyIcon className="h-6 w-6 text-indigo-600" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">
+                    Reset Client Password
+                  </h3>
+                  <p className="text-xs text-gray-500">
+                    Default password reset action
+                  </p>
+                </div>
+              </div>
+              <p className="text-sm text-gray-600 mb-6">
+                Are you sure you want to reset the password for{" "}
+                <strong className="text-gray-900 font-semibold">
+                  {client?.profile?.firstName ? `${client.profile.firstName} ${client.profile.lastName || ''}` : client?.email}
+                </strong>{" "}
+                to <span className="font-mono bg-gray-100 px-1.5 py-0.5 rounded text-indigo-700 font-bold">123456</span>?
+              </p>
+              <div className="flex justify-end space-x-3">
+                <button
+                  type="button"
+                  onClick={() => setShowResetPasswordModal(false)}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => resetPassword()}
+                  disabled={isResettingPassword}
+                  className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-sm transition-colors disabled:opacity-50"
+                >
+                  {isResettingPassword ? "Resetting..." : "Confirm Reset to 123456"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Assign Names Modal */}
       {showAssignModal && (

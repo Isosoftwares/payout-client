@@ -49,7 +49,7 @@ export default function AdminPayments() {
         handleDownloadReport(res.data.historyId);
       }
     },
-    onError: (err) => toast.error(err?.response?.data?.message || 'Failed to upload CSV'),
+    onError: (err) => toast.error(err?.response?.data?.message || 'Failed to upload payments file'),
   });
 
   const { mutate: updateSettings, isPending: isUpdatingSettings } = useMutation({
@@ -91,32 +91,49 @@ export default function AdminPayments() {
     }
   };
 
+  const handleDragEnter = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  };
+
   const handleDragOver = (e) => {
     e.preventDefault();
+    e.stopPropagation();
+    e.dataTransfer.dropEffect = 'copy';
     setIsDragging(true);
   };
 
   const handleDragLeave = (e) => {
     e.preventDefault();
+    e.stopPropagation();
+    if (e.currentTarget.contains(e.relatedTarget)) return;
     setIsDragging(false);
   };
 
   const handleDrop = (e) => {
     e.preventDefault();
+    e.stopPropagation();
     setIsDragging(false);
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      setFile(e.dataTransfer.files[0]);
+      const droppedFile = e.dataTransfer.files[0];
+      const ext = droppedFile.name.split('.').pop().toLowerCase();
+      if (['csv', 'xlsx', 'xls'].includes(ext)) {
+        setFile(droppedFile);
+      } else {
+        toast.error('Please upload a CSV or Excel (.xlsx, .xls) file');
+      }
       e.dataTransfer.clearData();
     }
   };
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 space-y-8">
+    <div className="p-4 sm:p-6 lg:p-8 space-y-8" onDragOver={(e) => e.preventDefault()} onDrop={(e) => e.preventDefault()}>
       <div className="sm:flex sm:items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Payment Receipts</h1>
           <p className="mt-2 text-sm text-gray-700">
-            Upload CSVs with payment details to automatically update payout balances and trigger maturity periods.
+            Upload CSV or Excel files with payment details to automatically update payout balances and trigger maturity periods.
           </p>
         </div>
         <div className="mt-4 sm:mt-0">
@@ -134,30 +151,31 @@ export default function AdminPayments() {
       </div>
 
       <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-        <h2 className="text-lg font-medium text-gray-900 mb-4">Upload Payments CSV</h2>
+        <h2 className="text-lg font-medium text-gray-900 mb-4">Upload Payments (CSV or Excel)</h2>
         <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
-          <form onSubmit={handleUpload} className="flex-1 max-w-2xl">
+          <form onSubmit={handleUpload} onDragOver={(e) => e.preventDefault()} onDrop={(e) => e.preventDefault()} className="flex-1 max-w-2xl">
             <div className="flex items-center gap-4">
               <label 
                 htmlFor="csv-upload"
+                onDragEnter={handleDragEnter}
                 onDragOver={handleDragOver}
                 onDragLeave={handleDragLeave}
                 onDrop={handleDrop}
-                className={`flex-1 flex justify-center w-full px-4 py-6 border-2 border-dashed rounded-lg cursor-pointer transition-colors ${
+                className={`flex-1 flex justify-center w-full px-4 py-6 border-2 border-dashed rounded-lg cursor-pointer transition-all ${
                   isDragging 
-                    ? 'border-blue-500 bg-blue-100' 
+                    ? 'border-blue-500 bg-blue-100 ring-2 ring-blue-400 scale-[1.01]' 
                     : 'border-gray-300 hover:border-blue-500 hover:bg-blue-50'
                 }`}
               >
                 <div className="space-y-1 text-center pointer-events-none">
-                  <ArrowUpTrayIcon className="mx-auto h-8 w-8 text-gray-400" />
+                  <ArrowUpTrayIcon className={`mx-auto h-8 w-8 ${isDragging ? 'text-blue-600 animate-bounce' : 'text-gray-400'}`} />
                   <div className="text-sm text-gray-600">
                     <span className="font-medium text-blue-600 hover:text-blue-500">
                       Upload a file
                     </span>{' '}
                     or drag and drop
                   </div>
-                  <p className="text-xs text-gray-500">CSV must contain: Name, Amount, Date</p>
+                  <p className="text-xs text-gray-500">CSV or Excel (.xlsx, .xls) must contain: Name, Amount, Date</p>
                   {file && (
                     <p className="text-sm font-semibold text-green-600 mt-2">
                       Selected: {file.name}
@@ -167,9 +185,13 @@ export default function AdminPayments() {
                 <input 
                   type="file" 
                   id="csv-upload"
-                  accept=".csv"
+                  accept=".csv, .xlsx, .xls, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel"
                   className="sr-only"
-                  onChange={(e) => setFile(e.target.files[0])}
+                  onChange={(e) => {
+                    if (e.target.files && e.target.files[0]) {
+                      setFile(e.target.files[0]);
+                    }
+                  }}
                 />
               </label>
               <button 
@@ -183,7 +205,7 @@ export default function AdminPayments() {
             
             <div className="mt-4 flex items-center justify-between">
               <p className="text-xs text-gray-500">
-                <strong>CSV Format Example:</strong> Name, Amount, Date
+                <strong>Format Example:</strong> Name, Amount, Date (CSV, XLSX, or XLS)
               </p>
               <a 
                 href="/sample-payments.csv" 
