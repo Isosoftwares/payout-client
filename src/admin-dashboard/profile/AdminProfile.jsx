@@ -27,6 +27,7 @@ function AdminProfile() {
   // Modal states
   const [showEditModal, setShowEditModal] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [testingTelegram, setTestingTelegram] = useState(false);
 
   // Fetch user profile
   const getUserProfile = async () => {
@@ -51,6 +52,29 @@ function AdminProfile() {
       toast.error(errorMessage);
     },
   });
+
+  const { data: botInfoData, refetch: refetchBotInfo } = useQuery({
+    queryKey: ["telegram-bot-info"],
+    queryFn: async () => {
+      const res = await axios.get("/users/profile/telegram/bot-info");
+      return res.data?.data;
+    },
+    retry: 0,
+  });
+
+  const botInfo = botInfoData;
+
+  const handleTestTelegram = async () => {
+    try {
+      setTestingTelegram(true);
+      const res = await axios.post("/users/profile/telegram/test");
+      toast.success(res.data?.message || "Test notification sent successfully!");
+    } catch (err) {
+      toast.error(err?.response?.data?.message || "Failed to send test notification");
+    } finally {
+      setTestingTelegram(false);
+    }
+  };
 
   const user = userData?.data?.data;
 
@@ -323,6 +347,148 @@ function AdminProfile() {
                   </div>
                 </div>
               </div>
+            </div>
+
+            {/* Telegram Notifications Card */}
+            <div className="bg-white rounded-xl border border-gray-200 p-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center text-blue-500">
+                    <svg className="w-6 h-6" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69.01-.03.01-.14-.07-.19-.08-.05-.19-.02-.27 0-.12.03-1.99 1.27-5.62 3.72-.53.36-1.01.54-1.44.53-.47-.01-1.38-.27-2.06-.49-.83-.27-1.49-.42-1.43-.88.03-.24.37-.49 1.02-.75 3.98-1.73 6.64-2.87 7.97-3.44 3.79-1.63 4.58-1.91 5.09-1.92.11 0 .37.03.54.17.14.12.18.28.2.45-.01.07.01.21 0 .33z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900">
+                      Telegram Notifications
+                    </h3>
+                    <p className="text-sm text-gray-500">
+                      {user?.role === "admin"
+                        ? "Receive real-time alerts for payout requests, name requests, and client support messages."
+                        : "Receive instant updates when payments arrive, payouts are completed, or names are approved."}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  {user?.telegramChatId ? (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">
+                      <span className="h-2 w-2 rounded-full bg-green-500"></span>
+                      Connected
+                    </span>
+                  ) : user?.telegramUsername ? (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-800">
+                      <span className="h-2 w-2 rounded-full bg-amber-500 animate-pulse"></span>
+                      Pending Connection
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
+                      Not Configured
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-gray-50 rounded-xl p-4 border border-gray-100">
+                <div>
+                  <div className="text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Telegram Username
+                  </div>
+                  <div className="text-base font-semibold text-gray-900 mt-1">
+                    {user?.telegramUsername ? `@${user.telegramUsername}` : "Not set"}
+                  </div>
+                </div>
+
+                <div>
+                  <div className="text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Notification Delivery
+                  </div>
+                  <div className="text-base font-semibold mt-1">
+                    {user?.telegramNotificationsEnabled !== false ? (
+                      <span className="text-green-600 flex items-center gap-1">
+                        Enabled
+                      </span>
+                    ) : (
+                      <span className="text-gray-400">Disabled</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Banner when unlinked */}
+              {!user?.telegramChatId && (
+                <div className="mt-4 p-4 rounded-xl bg-blue-50/70 border border-blue-200/80">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                      <h4 className="text-sm font-semibold text-blue-900">
+                        {user?.telegramUsername
+                          ? "Step 2: Start the Bot in Telegram"
+                          : "Step 1: Set your Telegram Username"}
+                      </h4>
+                      <p className="text-xs text-blue-700 mt-0.5">
+                        {user?.telegramUsername
+                          ? "Click below to open Telegram and tap 'Start' to activate notifications on your account."
+                          : "Click 'Edit Profile' to enter your Telegram username."}
+                      </p>
+                    </div>
+
+                    {botInfo?.connectUrl ? (
+                      <a
+                        href={botInfo.connectUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg shadow-sm transition-all whitespace-nowrap"
+                      >
+                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69.01-.03.01-.14-.07-.19-.08-.05-.19-.02-.27 0-.12.03-1.99 1.27-5.62 3.72-.53.36-1.01.54-1.44.53-.47-.01-1.38-.27-2.06-.49-.83-.27-1.49-.42-1.43-.88.03-.24.37-.49 1.02-.75 3.98-1.73 6.64-2.87 7.97-3.44 3.79-1.63 4.58-1.91 5.09-1.92.11 0 .37.03.54.17.14.12.18.28.2.45-.01.07.01.21 0 .33z" />
+                        </svg>
+                        Connect on Telegram ↗
+                      </a>
+                    ) : (
+                      <button
+                        onClick={() => setShowEditModal(true)}
+                        className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg shadow-sm transition-all whitespace-nowrap"
+                      >
+                        Configure Username
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Actions for connected users */}
+              {user?.telegramChatId && (
+                <div className="mt-4 flex flex-wrap items-center gap-3 pt-2">
+                  <button
+                    onClick={handleTestTelegram}
+                    disabled={testingTelegram}
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 text-sm font-medium rounded-lg shadow-sm transition-all disabled:opacity-50"
+                  >
+                    {testingTelegram ? (
+                      <>
+                        <div className="h-4 w-4 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+                        Sending Test...
+                      </>
+                    ) : (
+                      <>
+                        <span>🔔</span>
+                        Send Test Notification
+                      </>
+                    )}
+                  </button>
+
+                  {botInfo?.connectUrl && (
+                    <a
+                      href={botInfo.connectUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-800 font-medium"
+                    >
+                      Open Bot Chat ↗
+                    </a>
+                  )}
+                </div>
+              )}
             </div>
 
           </div>

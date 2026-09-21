@@ -36,13 +36,7 @@ const SidebarAdmin = ({ setSideNav, sideNav }) => {
     refetchOnWindowFocus: true,
   });
 
-  const { data: requestsData } = useQuery({
-    queryKey: ["payout-requests"],
-    queryFn: () => axios.get("/payout-requests"),
-    refetchInterval: 10000,
-    refetchOnMount: true,
-    refetchOnWindowFocus: true,
-  });
+ 
 
   const { data: allocationRequestsData } = useQuery({
     queryKey: ["admin-allocation-requests-polling"],
@@ -64,9 +58,7 @@ const SidebarAdmin = ({ setSideNav, sideNav }) => {
     (acc) => acc.status === "pending_bank_details" || acc.status === "pending"
   ).length || 0;
 
-  const unattendedPayoutRequests = requestsData?.data?.data?.filter(
-    (req) => req.status === "pending"
-  ).length || 0;
+
 
   const unattendedBulk = allocationRequestsData?.data?.total || 0;
   const unattendedSpecific = specificRequestsData?.data?.total || 0;
@@ -162,11 +154,7 @@ const SidebarAdmin = ({ setSideNav, sideNav }) => {
                       {unattendedAllocationRequests}
                     </span>
                   )}
-                  {item.key === "payout-requests" && unattendedPayoutRequests > 0 && (
-                    <span className="bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full shadow-sm mr-2 z-10">
-                      {unattendedPayoutRequests}
-                    </span>
-                  )}
+                 
 
                   {/* Active indicator */}
                   {isActive && (

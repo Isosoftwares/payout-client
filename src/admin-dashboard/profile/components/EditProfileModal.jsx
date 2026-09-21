@@ -27,6 +27,8 @@ const EditProfileModal = ({ isOpen, onClose, user }) => {
         phone: "",
         company: "",
       },
+      telegramUsername: "",
+      telegramNotificationsEnabled: true,
     },
   });
 
@@ -37,6 +39,8 @@ const EditProfileModal = ({ isOpen, onClose, user }) => {
       setValue("profile.lastName", user?.profile?.lastName || "");
       setValue("profile.phone", user?.profile?.phone || "");
       setValue("profile.company", user?.profile?.company || "");
+      setValue("telegramUsername", user?.telegramUsername || "");
+      setValue("telegramNotificationsEnabled", user?.telegramNotificationsEnabled !== false);
     }
   }, [user, isOpen, setValue]);
 
@@ -53,6 +57,7 @@ const EditProfileModal = ({ isOpen, onClose, user }) => {
           response?.data?.message || "Profile updated successfully";
         toast.success(message);
         queryClient.invalidateQueries(["own-profile"]);
+        queryClient.invalidateQueries(["telegram-bot-info"]);
         handleClose();
       },
       onError: (error) => {
@@ -76,6 +81,8 @@ const EditProfileModal = ({ isOpen, onClose, user }) => {
           phone: data?.profile?.phone?.trim() || "",
           company: data?.profile?.company?.trim() || "",
         },
+        telegramUsername: data?.telegramUsername?.trim() || "",
+        telegramNotificationsEnabled: data?.telegramNotificationsEnabled !== false,
       };
 
       updateProfileMutate(profileData);
@@ -246,6 +253,57 @@ const EditProfileModal = ({ isOpen, onClose, user }) => {
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-200"
                   {...register("profile.company")}
                 />
+              </div>
+            </div>
+          </div>
+
+          {/* Telegram Notifications Section */}
+          <div className="space-y-4 border-t border-gray-200 pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h4 className="text-lg font-medium text-gray-900 flex items-center gap-2">
+                  <svg className="w-5 h-5 text-blue-500" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69.01-.03.01-.14-.07-.19-.08-.05-.19-.02-.27 0-.12.03-1.99 1.27-5.62 3.72-.53.36-1.01.54-1.44.53-.47-.01-1.38-.27-2.06-.49-.83-.27-1.49-.42-1.43-.88.03-.24.37-.49 1.02-.75 3.98-1.73 6.64-2.87 7.97-3.44 3.79-1.63 4.58-1.91 5.09-1.92.11 0 .37.03.54.17.14.12.18.28.2.45-.01.07.01.21 0 .33z" />
+                  </svg>
+                  Telegram Notifications
+                </h4>
+                <p className="text-sm text-gray-500">
+                  Receive instant alerts for payments, payouts, and requests directly in Telegram.
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-blue-50/60 border border-blue-100 rounded-lg p-4 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Telegram Username
+                </label>
+                <div className="relative rounded-lg shadow-sm">
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-gray-400 font-medium">
+                    @
+                  </div>
+                  <input
+                    type="text"
+                    placeholder="your_telegram_username"
+                    className="w-full pl-9 pr-4 py-2.5 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-sm transition-all duration-200"
+                    {...register("telegramUsername")}
+                  />
+                </div>
+                <p className="text-xs text-gray-500 mt-1.5">
+                  Enter your username without @ (e.g. <code>john_doe</code>).
+                </p>
+              </div>
+
+              <div className="flex items-center gap-3 pt-1">
+                <input
+                  type="checkbox"
+                  id="telegramNotificationsEnabled"
+                  className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded cursor-pointer"
+                  {...register("telegramNotificationsEnabled")}
+                />
+                <label htmlFor="telegramNotificationsEnabled" className="text-sm text-gray-700 cursor-pointer select-none">
+                  Enable Telegram notifications for this account
+                </label>
               </div>
             </div>
           </div>

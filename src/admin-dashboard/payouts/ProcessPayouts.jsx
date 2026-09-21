@@ -158,7 +158,6 @@ export default function ProcessPayouts() {
 
   const selectedPaymentMethod = selectedClient?.paymentMethods?.find(pm => pm._id === paymentMethodId);
 
-  console.log(selectedClient?.paymentMethods);
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 space-y-8">

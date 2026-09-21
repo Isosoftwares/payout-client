@@ -5,6 +5,11 @@ import useAxiosPrivate from "../../hooks/useAxiosPrivate";
 import { toast } from "react-toastify";
 import UpdateUserModal from "./UpdateUserModal";
 import DeleteUserModal from "./DeleteUserModal";
+import DirectClaimModal from "./DirectClaimModal";
+import CreateSpecificNameModal from "./CreateSpecificNameModal";
+import CreateSubaccountModal from "./CreateSubaccountModal";
+import ClientPayoutNamesTab from "./ClientPayoutNamesTab";
+import ClientSubaccountsTab from "./ClientSubaccountsTab";
 import {
   ArrowLeftIcon,
   PencilIcon,
@@ -26,6 +31,10 @@ import {
   BanknotesIcon,
   KeyIcon,
   NoSymbolIcon,
+  BoltIcon,
+  TagIcon,
+  UserPlusIcon,
+  UserGroupIcon,
 } from "@heroicons/react/24/outline";
 import useAuth from "../../hooks/useAuth";
 
@@ -42,6 +51,10 @@ function ClientDetails() {
   const [showResetPasswordModal, setShowResetPasswordModal] = useState(false);
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [showUnassignModal, setShowUnassignModal] = useState(false);
+  const [showDirectClaimModal, setShowDirectClaimModal] = useState(false);
+  const [showCreateSpecificModal, setShowCreateSpecificModal] = useState(false);
+  const [showCreateSubaccountModal, setShowCreateSubaccountModal] = useState(false);
+  const [activeTab, setActiveTab] = useState("payout-names");
   const [assignCount, setAssignCount] = useState(1);
   const [unassignCount, setUnassignCount] = useState(1);
   const queryClient = useQueryClient();
@@ -149,6 +162,13 @@ function ClientDetails() {
     queryKey: ["payout-names", _id],
     queryFn: () => axios.get(`/payout-names?limit=1000&allocatedTo=${_id}`),
   });
+
+  const { data: subaccountsData, isLoading: loadingSubaccounts } = useQuery({
+    queryKey: ["subaccounts", _id],
+    queryFn: () => axios.get(`/subaccounts?clientId=${_id}`),
+  });
+
+  const clientSubaccounts = subaccountsData?.data?.data || [];
 
   const { data: txData } = useQuery({
     queryKey: ["transactions"],
@@ -397,6 +417,35 @@ function ClientDetails() {
                       </div>
                     </div>
                   </div>
+
+                  <div className="flex items-center space-x-3">
+                    <svg className="h-5 w-5 text-blue-500 flex-shrink-0" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69.01-.03.01-.14-.07-.19-.08-.05-.19-.02-.27 0-.12.03-1.99 1.27-5.62 3.72-.53.36-1.01.54-1.44.53-.47-.01-1.38-.27-2.06-.49-.83-.27-1.49-.42-1.43-.88.03-.24.37-.49 1.02-.75 3.98-1.73 6.64-2.87 7.97-3.44 3.79-1.63 4.58-1.91 5.09-1.92.11 0 .37.03.54.17.14.12.18.28.2.45-.01.07.01.21 0 .33z" />
+                    </svg>
+                    <div>
+                      <div className="text-sm font-medium text-gray-500">
+                        Telegram Notifications
+                      </div>
+                      <div className="text-gray-900 font-medium flex items-center gap-2 mt-0.5">
+                        {client?.telegramUsername ? (
+                          <>
+                            <span>@{client.telegramUsername}</span>
+                            {client?.telegramChatId ? (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+                                Connected
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800">
+                                Unlinked
+                              </span>
+                            )}
+                          </>
+                        ) : (
+                          <span className="text-gray-400 font-normal text-sm">Not configured</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -512,6 +561,30 @@ function ClientDetails() {
 
               <div className="space-y-3">
                 <button
+                  onClick={() => setShowDirectClaimModal(true)}
+                  className="w-full flex items-center justify-center px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-all duration-200 text-sm shadow-sm"
+                >
+                  <BoltIcon className="h-4 w-4 mr-2" />
+                  Direct Claim Names
+                </button>
+
+                <button
+                  onClick={() => setShowCreateSpecificModal(true)}
+                  className="w-full flex items-center justify-center px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-all duration-200 text-sm shadow-sm"
+                >
+                  <TagIcon className="h-4 w-4 mr-2" />
+                  Add Specific Name
+                </button>
+
+                <button
+                  onClick={() => setShowCreateSubaccountModal(true)}
+                  className="w-full flex items-center justify-center px-4 py-2.5 bg-purple-600 hover:bg-purple-700 text-white font-medium rounded-lg transition-all duration-200 text-sm shadow-sm"
+                >
+                  <UserPlusIcon className="h-4 w-4 mr-2" />
+                  Create Subaccount
+                </button>
+
+                <button
                   onClick={() => setShowAssignModal(true)}
                   className="w-full flex items-center justify-center px-4 py-2.5 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg transition-all duration-200 text-sm shadow-sm"
                 >
@@ -577,112 +650,205 @@ function ClientDetails() {
           </div>
         </div>
 
+        {/* Modern Tabs Section */}
         <div className="py-8">
-          <div className="bg-white rounded-xl border border-gray-200 p-6 mb-8">
-            <h3 className="text-lg font-semibold text-gray-900 mb-6 flex items-center">
-              <CreditCardIcon className="h-6 w-6 mr-3 text-primary" />
-              Payment Methods
-            </h3>
-            
-            <div className="space-y-4">
-              {(!client?.paymentMethods || client.paymentMethods.length === 0) ? (
-                <div className="text-center py-6 text-gray-500 bg-gray-50 rounded-lg border border-dashed border-gray-300">
-                  No payment methods added by this client yet.
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {client.paymentMethods.map((method) => (
-                    <div key={method._id} className="flex items-start space-x-4 p-4 rounded-lg border border-gray-200 bg-gray-50">
-                      <div className="mt-1">
-                        {getMethodIcon(method.type)}
-                      </div>
-                      <div className="flex-1">
-                        <div className="flex items-center space-x-2">
-                          <h4 className="text-sm font-bold text-gray-900 capitalize">
-                            {method.type === 'mpesa' ? 'M-Pesa' : method.type === 'bank' ? 'Bank Transfer' : 'Crypto Wallet'}
-                          </h4>
-                          {method.isDefault && (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                              <CheckBadgeIcon className="h-3 w-3 mr-1" /> Preferred
-                            </span>
-                          )}
-                        </div>
-                        
-                        <div className="mt-1 text-sm text-gray-600">
-                          {method.type === 'mpesa' && (
-                            <p>{method.details.name} • {method.details.phone} • <span className="font-semibold text-gray-700">KES</span></p>
-                          )}
-                          {method.type === 'bank' && (
-                            <div>
-                              <p>{method.details.bankName} • {method.details.accountNumber}</p>
-                              <p className="text-xs text-gray-500 mt-0.5">{method.details.accountName} • <span className="font-semibold text-gray-700">{method.details.bankCurrency || 'KES'}</span></p>
-                            </div>
-                          )}
-                          {method.type === 'crypto' && (
-                            <div>
-                              <p className="font-medium text-gray-700">{method.details.currency} ({method.details.network})</p>
-                              <p className="text-xs text-gray-500 mt-0.5 break-all">{method.details.address}</p>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+          {/* Tab Navigation */}
+          <div className="flex border-b border-gray-200 mb-6 space-x-8">
+            <button
+              onClick={() => setActiveTab("payout-names")}
+              className={`pb-4 px-1 inline-flex items-center space-x-2 text-sm font-semibold border-b-2 transition-all ${
+                activeTab === "payout-names"
+                  ? "border-blue-600 text-blue-600"
+                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+              }`}
+            >
+              <BanknotesIcon className="w-5 h-5" />
+              <span>Payout Names Inventory</span>
+              <span
+                className={`ml-2 py-0.5 px-2.5 rounded-full text-xs font-bold ${
+                  activeTab === "payout-names"
+                    ? "bg-blue-100 text-blue-800"
+                    : "bg-gray-100 text-gray-600"
+                }`}
+              >
+                {clientPayoutNames.length}
+              </span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab("subaccounts")}
+              className={`pb-4 px-1 inline-flex items-center space-x-2 text-sm font-semibold border-b-2 transition-all ${
+                activeTab === "subaccounts"
+                  ? "border-purple-600 text-purple-600"
+                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+              }`}
+            >
+              <UserGroupIcon className="w-5 h-5" />
+              <span>Broker Subaccounts</span>
+              <span
+                className={`ml-2 py-0.5 px-2.5 rounded-full text-xs font-bold ${
+                  activeTab === "subaccounts"
+                    ? "bg-purple-100 text-purple-800"
+                    : "bg-gray-100 text-gray-600"
+                }`}
+              >
+                {clientSubaccounts.length}
+              </span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab("payment-methods")}
+              className={`pb-4 px-1 inline-flex items-center space-x-2 text-sm font-semibold border-b-2 transition-all ${
+                activeTab === "payment-methods"
+                  ? "border-primary text-primary"
+                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+              }`}
+            >
+              <CreditCardIcon className="w-5 h-5" />
+              <span>Payment Methods & Accounts</span>
+              <span
+                className={`ml-2 py-0.5 px-2.5 rounded-full text-xs font-bold ${
+                  activeTab === "payment-methods"
+                    ? "bg-primary/10 text-primary"
+                    : "bg-gray-100 text-gray-600"
+                }`}
+              >
+                {(client?.paymentMethods?.length || 0) + virtualAccounts.length}
+              </span>
+            </button>
           </div>
 
-          <div className="bg-white rounded-xl border border-gray-200 p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-6">
-              Client Payout Names Inventory
-            </h3>
-            {clientPayoutNames.length === 0 ? (
-              <p className="text-gray-500">No payout names allocated to this client yet.</p>
-            ) : (
-              <div className="overflow-x-auto max-h-[500px]">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50 sticky top-0">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Account Number</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment Status</th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {clientPayoutNames.map((pn) => (
-                      <tr key={pn._id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm font-medium text-gray-900">{pn.name}</div>
-                          <div className="text-xs text-gray-500">{pn.status === 'claimed' ? 'Claimed' : 'Unclaimed'}</div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 font-mono">
-                          {pn.accountNumber}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
-                          ${(pn.amount || 0).toFixed(2)}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium capitalize ${
-                            pn.paymentStatus === 'paid' ? 'bg-green-100 text-green-800' :
-                            pn.paymentStatus === 'matured' ? 'bg-yellow-100 text-yellow-800' :
-                            'bg-gray-100 text-gray-800'
-                          }`}>
-                            {pn.paymentStatus || 'received'}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+          {/* Tab 1: Payout Names */}
+          {activeTab === "payout-names" && (
+            <ClientPayoutNamesTab
+              clientName={
+                client?.profile?.firstName
+                  ? `${client.profile.firstName} ${client.profile.lastName || ""}`.trim()
+                  : client?.email
+              }
+              payoutNames={clientPayoutNames}
+              isLoadingNames={false}
+              subaccounts={clientSubaccounts}
+              allocatedCount={allocatedUnclaimedCount}
+              onOpenDirectClaim={() => setShowDirectClaimModal(true)}
+              onOpenCreateSpecific={() => setShowCreateSpecificModal(true)}
+            />
+          )}
+
+          {/* Tab 2: Subaccounts */}
+          {activeTab === "subaccounts" && (
+            <ClientSubaccountsTab
+              clientId={_id}
+              clientName={
+                client?.profile?.firstName
+                  ? `${client.profile.firstName} ${client.profile.lastName || ""}`.trim()
+                  : client?.email
+              }
+              subaccounts={clientSubaccounts}
+              isLoadingSubaccounts={loadingSubaccounts}
+              onOpenCreateModal={() => setShowCreateSubaccountModal(true)}
+            />
+          )}
+
+          {/* Tab 3: Payment Methods & Accounts */}
+          {activeTab === "payment-methods" && (
+            <div className="space-y-6">
+              <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
+                <h3 className="text-lg font-bold text-gray-900 mb-6 flex items-center">
+                  <CreditCardIcon className="h-6 w-6 mr-3 text-primary" />
+                  Payout Methods
+                </h3>
+                
+                <div className="space-y-4">
+                  {(!client?.paymentMethods || client.paymentMethods.length === 0) ? (
+                    <div className="text-center py-6 text-gray-500 bg-gray-50 rounded-xl border border-dashed border-gray-200">
+                      No payment methods added by this client yet.
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {client.paymentMethods.map((method) => (
+                        <div key={method._id} className="flex items-start space-x-4 p-4 rounded-xl border border-gray-100 bg-gray-50/70">
+                          <div className="mt-1">
+                            {getMethodIcon(method.type)}
+                          </div>
+                          <div className="flex-1">
+                            <div className="flex items-center space-x-2">
+                              <h4 className="text-sm font-bold text-gray-900 capitalize">
+                                {method.type === 'mpesa' ? 'M-Pesa' : method.type === 'bank' ? 'Bank Transfer' : 'Crypto Wallet'}
+                              </h4>
+                              {method.isDefault && (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-800">
+                                  <CheckBadgeIcon className="h-3 w-3 mr-1" /> Preferred
+                                </span>
+                              )}
+                            </div>
+                            
+                            <div className="mt-1 text-xs text-gray-600">
+                              {method.type === 'mpesa' && (
+                                <p>{method.details.name} • {method.details.phone} • <span className="font-semibold text-gray-700">KES</span></p>
+                              )}
+                              {method.type === 'bank' && (
+                                <div>
+                                  <p>{method.details.bankName} • {method.details.accountNumber}</p>
+                                  <p className="text-gray-500 mt-0.5">{method.details.accountName} • <span className="font-semibold text-gray-700">{method.details.bankCurrency || 'KES'}</span></p>
+                                </div>
+                              )}
+                              {method.type === 'crypto' && (
+                                <div>
+                                  <p className="font-medium text-gray-700">{method.details.currency} ({method.details.network})</p>
+                                  <p className="text-gray-500 mt-0.5 break-all">{method.details.address}</p>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
-            )}
-          </div>
+            </div>
+          )}
         </div>
       </div>
 
       {/* Modals */}
+      <DirectClaimModal
+        isOpen={showDirectClaimModal}
+        onClose={() => setShowDirectClaimModal(false)}
+        clientId={_id}
+        clientName={
+          client?.profile?.firstName
+            ? `${client.profile.firstName} ${client.profile.lastName || ""}`.trim()
+            : client?.email
+        }
+        subaccounts={clientSubaccounts}
+        allocatedCount={allocatedUnclaimedCount}
+      />
+
+      <CreateSpecificNameModal
+        isOpen={showCreateSpecificModal}
+        onClose={() => setShowCreateSpecificModal(false)}
+        clientId={_id}
+        clientName={
+          client?.profile?.firstName
+            ? `${client.profile.firstName} ${client.profile.lastName || ""}`.trim()
+            : client?.email
+        }
+        subaccounts={clientSubaccounts}
+      />
+
+      <CreateSubaccountModal
+        isOpen={showCreateSubaccountModal}
+        onClose={() => setShowCreateSubaccountModal(false)}
+        clientId={_id}
+        clientName={
+          client?.profile?.firstName
+            ? `${client.profile.firstName} ${client.profile.lastName || ""}`.trim()
+            : client?.email
+        }
+      />
+
       <UpdateUserModal
         isOpen={showUpdateModal}
         onClose={() => setShowUpdateModal(false)}

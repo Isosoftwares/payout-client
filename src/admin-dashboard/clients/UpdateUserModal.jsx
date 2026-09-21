@@ -28,6 +28,7 @@ function UpdateUserModal({ isOpen, onClose, client }) {
         phone: client?.profile?.phone || "",
         company: client?.profile?.company || "",
       },
+      telegramUsername: client?.telegramUsername || "",
     },
   });
 
@@ -63,6 +64,7 @@ function UpdateUserModal({ isOpen, onClose, client }) {
         feePercentage: Number(data?.feePercentage) || 0,
         usdBuyPrice: Number(data?.usdBuyPrice) || 0,
         usdSellPrice: Number(data?.usdSellPrice) || 0,
+        telegramUsername: data?.telegramUsername?.trim() || "",
       };
 
       // Only include profile if at least one field has a value
@@ -311,6 +313,26 @@ function UpdateUserModal({ isOpen, onClose, client }) {
                   placeholder="Company Name"
                 />
               </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Telegram Username
+              </label>
+              <div className="relative rounded-lg shadow-sm">
+                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-gray-400 font-medium">
+                  @
+                </div>
+                <input
+                  type="text"
+                  {...register("telegramUsername")}
+                  className="w-full pl-9 pr-4 py-3 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-200"
+                  placeholder="username (without @)"
+                />
+              </div>
+              <p className="text-xs text-gray-500 mt-1">
+                Client can link to BotFather bot to receive real-time payout & payment alerts.
+              </p>
             </div>
           </div>
 
