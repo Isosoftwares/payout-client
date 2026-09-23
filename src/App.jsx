@@ -40,6 +40,8 @@ import AdminPayments from "./admin-dashboard/payments/AdminPayments";
 import ProcessPayouts from "./admin-dashboard/payouts/ProcessPayouts";
 import FeeLedger from "./admin-dashboard/ledger/FeeLedger";
 import AdminTransactions from "./admin-dashboard/transactions/AdminTransactions";
+import AdminDailyReport from "./admin-dashboard/reports/AdminDailyReport";
+import ClientDailyReport from "./website/reports/ClientDailyReport";
 
 function App() {
   const queryClient = new QueryClient({
@@ -101,6 +103,7 @@ function App() {
                   <Route path="/client" element={<Layout />}>
                     <Route index element={<ClientDashboard />} />
                     <Route path="payout-names" element={<PayoutNames />} />
+                    <Route path="daily-report" element={<ClientDailyReport />} />
                     <Route path="transactions" element={<Transactions />} />
                     <Route path="payment-methods" element={<PaymentMethodsPage />} />
                     <Route path="subaccounts" element={<Subaccounts />} />
@@ -122,6 +125,7 @@ function App() {
                     <Route path="allocation-requests" element={<AdminAllocationRequests />} />
                     <Route path="process-payouts" element={<ProcessPayouts />} />
                     <Route path="payments" element={<AdminPayments />} />
+                    <Route path="daily-report" element={<AdminDailyReport />} />
                     <Route path="fee-ledger" element={<FeeLedger />} />
                     <Route path="transactions" element={<AdminTransactions />} />
                     <Route path="clients" element={<Clients />} />

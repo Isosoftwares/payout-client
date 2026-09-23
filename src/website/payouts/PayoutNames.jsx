@@ -1,9 +1,17 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import useAxiosPrivate from '../../hooks/useAxiosPrivate';
 import { toast } from 'react-toastify';
 import { useForm } from 'react-hook-form';
-import { ChevronLeftIcon, ChevronRightIcon } from '@heroicons/react/24/outline';
+import {
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  DocumentTextIcon,
+  CalendarDaysIcon,
+  ArrowDownTrayIcon,
+  BoltIcon,
+} from '@heroicons/react/24/outline';
+import PayoutNameLogsModal from '../../components/PayoutNameLogsModal';
 
 export default function PayoutNames() {
   const axios = useAxiosPrivate();
@@ -12,17 +20,20 @@ export default function PayoutNames() {
   const [showSpecificRequestModal, setShowSpecificRequestModal] = useState(false);
   const [historyTab, setHistoryTab] = useState('specific'); // 'specific' or 'bulk'
   const [page, setPage] = useState(1);
-  const [limit] = useState(6);
+  const [limit] = useState(100);
   const [specificPage, setSpecificPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
   const [subaccountFilter, setSubaccountFilter] = useState('');
+  const [paymentStatusFilter, setPaymentStatusFilter] = useState('');
+  const [claimBatchFilter, setClaimBatchFilter] = useState('');
   const [selectedNames, setSelectedNames] = useState(new Set());
+  const [selectedPayoutNameForLogs, setSelectedPayoutNameForLogs] = useState(null);
   const { register, handleSubmit, reset, formState: { errors } } = useForm();
   const { register: registerSpecific, handleSubmit: handleSpecificSubmit, reset: resetSpecific, formState: { errors: specificErrors } } = useForm();
 
   const { data: inventoryData, isLoading: isLoadingInventory } = useQuery({
-    queryKey: ['client-inventory', searchTerm, subaccountFilter],
-    queryFn: () => axios.get(`/payout-names/my-inventory?search=${searchTerm}&subaccount=${subaccountFilter}`),
+    queryKey: ['client-inventory', searchTerm, subaccountFilter, paymentStatusFilter],
+    queryFn: () => axios.get(`/payout-names/my-inventory?search=${searchTerm}&subaccount=${subaccountFilter}&paymentStatus=${paymentStatusFilter}`),
     keepPreviousData: true,
   });
 
@@ -57,11 +68,19 @@ export default function PayoutNames() {
   const allocatedCount = inventoryData?.data?.data?.allocatedCount || 0;
   const claimedNames = inventoryData?.data?.data?.claimedNames || [];
 
+  const { data: quotaData } = useQuery({
+    queryKey: ['client-self-allocation-quota'],
+    queryFn: () => axios.get('/payout-names/self-allocation-quota'),
+  });
+  const quotaInfo = quotaData?.data?.data || null;
+
   const { mutate: requestAllocation, isPending: isRequesting } = useMutation({
     mutationFn: (data) => axios.post('/payout-names/request', data),
-    onSuccess: () => {
-      toast.success('Allocation requested successfully');
+    onSuccess: (res) => {
+      toast.success(res?.data?.message || 'Allocation request processed successfully');
       queryClient.invalidateQueries(['client-allocation-requests']);
+      queryClient.invalidateQueries(['client-inventory']);
+      queryClient.invalidateQueries(['client-self-allocation-quota']);
       setShowRequestModal(false);
       reset();
     },
@@ -123,39 +142,122 @@ export default function PayoutNames() {
     setSelectedNames(newSelected);
   };
 
-  const downloadNames = () => {
-    let namesToDownload = claimedNames;
-    if (selectedNames.size > 0) {
-      namesToDownload = claimedNames.filter(n => selectedNames.has(n._id));
-    }
-    
-    if (namesToDownload.length === 0) {
+  // Group claimed names into distinct batches (most recent claim first, unknown claim date last)
+  const batches = useMemo(() => {
+    const map = new Map();
+
+    claimedNames.forEach((pn) => {
+      let batchKey = 'unknown';
+      let batchDate = null;
+      let batchTitle = 'Unknown Claim Date (Legacy Batch)';
+
+      if (pn.claimedAt) {
+        batchDate = new Date(pn.claimedAt);
+        batchKey = pn.claimBatchId || `time_${batchDate.toISOString().substring(0, 16)}`;
+        batchTitle = batchDate.toLocaleString(undefined, {
+          year: 'numeric',
+          month: 'short',
+          day: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+        });
+      }
+
+      if (!map.has(batchKey)) {
+        map.set(batchKey, {
+          key: batchKey,
+          title: batchTitle,
+          date: batchDate,
+          isUnknown: !batchDate,
+          names: [],
+        });
+      }
+      map.get(batchKey).names.push(pn);
+    });
+
+    const batchList = Array.from(map.values());
+    batchList.sort((a, b) => {
+      if (a.isUnknown && !b.isUnknown) return 1;
+      if (!a.isUnknown && b.isUnknown) return -1;
+      if (a.date && b.date) return b.date.getTime() - a.date.getTime();
+      return 0;
+    });
+
+    return batchList;
+  }, [claimedNames]);
+
+  // Filtered batches based on claimBatchFilter
+  const displayedBatches = useMemo(() => {
+    if (!claimBatchFilter) return batches;
+    return batches.filter((b) => b.key === claimBatchFilter);
+  }, [batches, claimBatchFilter]);
+
+  const downloadCSV = (namesToDownload, filename = 'payout_names.csv') => {
+    if (!namesToDownload || namesToDownload.length === 0) {
       toast.info('No names available to download.');
       return;
     }
-    
-    const headers = ['Name', 'Account Number', 'Routing Number', 'Claimed For', 'Amount', 'Payment Status', 'Maturity Date'];
-    const rows = namesToDownload.map(name => [
-      name.name,
-      name.accountNumber,
-      name.routingNumber,
-      name.claimedForSubaccount ? name.claimedForSubaccount.username : 'Self',
+
+    const headers = [
+      'Name',
+      'Account Number',
+      'Routing Number',
+      'Claimed For',
+      'Claimed Date',
+      'Amount',
+      'Payment Status',
+      'Maturity Date'
+    ];
+
+    const rows = namesToDownload.map((name) => [
+      name.name || '',
+      name.accountNumber || '',
+      name.routingNumber || '',
+      name.claimedForSubaccount ? (name.claimedForSubaccount.username || 'Subaccount') : 'Self',
+      name.claimedAt ? new Date(name.claimedAt).toLocaleString() : 'Unknown',
       name.amount || 0,
       name.paymentStatus || 'not_received',
       name.maturityDate ? new Date(name.maturityDate).toLocaleDateString() : 'N/A'
     ]);
-    
+
     const csvContent = [
       headers.join(','),
-      ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
+      ...rows.map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(','))
     ].join('\n');
-    
-    const blob = new Blob([csvContent], { type: 'text/csv' });
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.setAttribute('href', url);
-    a.setAttribute('download', 'payout_names.csv');
+    a.setAttribute('download', filename);
+    document.body.appendChild(a);
     a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+    toast.success(`Downloaded ${namesToDownload.length} name(s) in CSV`);
+  };
+
+  const downloadBatch = (batch) => {
+    const safeTitle = batch.title.toLowerCase().replace(/[^a-z0-9]/g, '_');
+    downloadCSV(batch.names, `payout_names_${safeTitle}.csv`);
+  };
+
+  const downloadNames = () => {
+    if (selectedNames.size > 0) {
+      const selected = claimedNames.filter((n) => selectedNames.has(n._id));
+      downloadCSV(selected, 'payout_names_selected.csv');
+      return;
+    }
+
+    if (claimBatchFilter) {
+      const currentBatch = displayedBatches[0];
+      if (currentBatch) {
+        downloadBatch(currentBatch);
+        return;
+      }
+    }
+
+    downloadCSV(claimedNames, 'payout_names_all.csv');
   };
 
   return (
@@ -194,7 +296,7 @@ export default function PayoutNames() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 2xl:grid-cols-2 gap-8">
         
         {/* Claimed Names Section */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col h-full">
@@ -207,7 +309,7 @@ export default function PayoutNames() {
               <select
                 value={subaccountFilter}
                 onChange={(e) => setSubaccountFilter(e.target.value)}
-                className="block w-full sm:w-40 px-3 py-2 border border-gray-300 rounded-md text-sm shadow-sm focus:ring-blue-500 focus:border-blue-500 bg-white"
+                className="block w-full sm:w-36 px-3 py-2 border border-gray-300 rounded-md text-sm shadow-sm focus:ring-blue-500 focus:border-blue-500 bg-white"
               >
                 <option value="">All Accounts</option>
                 <option value="self">Self (Main)</option>
@@ -215,24 +317,51 @@ export default function PayoutNames() {
                   <option key={sa._id} value={sa._id}>{sa.username}</option>
                 ))}
               </select>
+              <select
+                value={paymentStatusFilter}
+                onChange={(e) => setPaymentStatusFilter(e.target.value)}
+                className="block w-full sm:w-40 px-3 py-2 border border-gray-300 rounded-md text-sm shadow-sm focus:ring-blue-500 focus:border-blue-500 bg-white font-medium"
+              >
+                <option value="">All Payment Statuses</option>
+                <option value="received">Received</option>
+                <option value="matured">Matured</option>
+                <option value="paid">Paid</option>
+                <option value="not_received">Not Received</option>
+              </select>
+              <select
+                value={claimBatchFilter}
+                onChange={(e) => setClaimBatchFilter(e.target.value)}
+                className="block w-full sm:w-44 px-3 py-2 border border-gray-300 rounded-md text-sm shadow-sm focus:ring-blue-500 focus:border-blue-500 bg-white font-medium"
+              >
+                <option value="">All Batches ({claimedNames.length})</option>
+                {batches.map((b) => (
+                  <option key={b.key} value={b.key}>
+                    {b.title} ({b.names.length})
+                  </option>
+                ))}
+              </select>
               <input
                 type="text"
                 placeholder="Search name or account..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="block w-full sm:w-56 px-3 py-2 border border-gray-300 rounded-md text-sm shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                className="block w-full sm:w-48 px-3 py-2 border border-gray-300 rounded-md text-sm shadow-sm focus:ring-blue-500 focus:border-blue-500"
               />
               <button
                 onClick={downloadNames}
                 className="px-4 py-2 bg-green-600 text-white rounded-md font-medium hover:bg-green-700 whitespace-nowrap text-sm shadow-sm transition-colors"
               >
-                {selectedNames.size > 0 ? `Download Selected (${selectedNames.size})` : 'Download All'}
+                {selectedNames.size > 0
+                  ? `Download Selected (${selectedNames.size})`
+                  : claimBatchFilter
+                  ? `Download Batch (${displayedBatches[0]?.names.length || 0})`
+                  : `Download All (${claimedNames.length})`}
               </button>
             </div>
           </div>
           <div className="overflow-y-auto max-h-[500px]">
             <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50 sticky top-0">
+              <thead className="bg-gray-50 sticky top-0 z-20">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
                     <input 
@@ -246,63 +375,143 @@ export default function PayoutNames() {
                   <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Acct Number</th>
                   <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Routing Number</th>
                   <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Claimed For</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Claimed Date</th>
                   <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Amount</th>
                   <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Payment Status</th>
                   <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Maturity Date</th>
+                  <th className="px-6 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {isLoadingInventory ? (
-                  <tr><td colSpan="8" className="p-6 text-center text-gray-500">Loading inventory...</td></tr>
-                ) : claimedNames.length === 0 ? (
-                  <tr><td colSpan="8" className="p-6 text-center text-gray-500">You haven't claimed any names yet (or none match search).</td></tr>
+                  <tr><td colSpan="10" className="p-6 text-center text-gray-500">Loading inventory...</td></tr>
+                ) : displayedBatches.length === 0 ? (
+                  <tr><td colSpan="10" className="p-6 text-center text-gray-500">You haven't claimed any names yet (or none match search/filter).</td></tr>
                 ) : (
-                  claimedNames.map(name => (
-                    <tr key={name._id} className="hover:bg-gray-50 transition-colors">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <input 
-                          type="checkbox" 
-                          className="rounded border-gray-300 text-primary focus:ring-primary"
-                          checked={selectedNames.has(name._id)}
-                          onChange={() => handleSelectName(name._id)}
-                        />
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                        {name.name}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 font-mono">
-                        {name.accountNumber}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 font-mono">
-                        {name.routingNumber}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {name.claimedForSubaccount ? (
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                            {name.claimedForSubaccount.username}
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                            Self
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                        ${name.amount?.toFixed(2) || '0.00'}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm">
-                        <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold leading-5 
-                          ${name.paymentStatus === 'not_received' ? 'bg-gray-100 text-gray-800' : 
-                            name.paymentStatus === 'received' ? 'bg-blue-100 text-blue-800' : 
-                            name.paymentStatus === 'matured' ? 'bg-green-100 text-green-800' :
-                            'bg-purple-100 text-purple-800'}`}>
-                          {name.paymentStatus ? name.paymentStatus.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase()) : 'Not Received'}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {name.maturityDate ? new Date(name.maturityDate).toLocaleDateString() : 'N/A'}
-                      </td>
-                    </tr>
+                  displayedBatches.map((batch) => (
+                    <React.Fragment key={batch.key}>
+                      {/* Batch Header Row */}
+                      <tr className="bg-gradient-to-r from-blue-50/90 via-indigo-50/50 to-blue-50/80 border-y border-blue-200/80">
+                        <td colSpan="10" className="px-6 py-2">
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <div className="flex items-center space-x-2">
+                              <span className="p-1 rounded bg-blue-600 text-white shadow-xs">
+                                <CalendarDaysIcon className="w-3.5 h-3.5" />
+                              </span>
+                              <span className="text-xs font-bold text-gray-900 tracking-tight">
+                                {batch.isUnknown ? '🔒 ' : '📅 '}Batch: {batch.title}
+                              </span>
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-blue-100 text-blue-800 border border-blue-200">
+                                {batch.names.length} {batch.names.length === 1 ? 'name' : 'names'}
+                              </span>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => downloadBatch(batch)}
+                              className="inline-flex items-center space-x-1.5 px-2.5 py-1 bg-white hover:bg-blue-50 text-blue-700 text-xs font-semibold rounded-lg border border-blue-200 shadow-xs transition-all active:scale-95"
+                              title="Download this specific batch as CSV"
+                            >
+                              <ArrowDownTrayIcon className="w-3 h-3 text-blue-600" />
+                              <span>Download Batch CSV</span>
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+
+                      {/* Batch Names Rows */}
+                      {batch.names.map((name) => (
+                        <tr key={name._id} className="hover:bg-gray-50 transition-colors">
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <input 
+                              type="checkbox" 
+                              className="rounded border-gray-300 text-primary focus:ring-primary"
+                              checked={selectedNames.has(name._id)}
+                              onChange={() => handleSelectName(name._id)}
+                            />
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                            {name.name}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 font-mono">
+                            {name.accountNumber}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 font-mono">
+                            {name.routingNumber}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {name.claimedForSubaccount ? (
+                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                {name.claimedForSubaccount.username}
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                                Self
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-xs text-gray-600">
+                            {name.claimedAt ? (
+                              <span className="font-medium text-gray-800">
+                                {new Date(name.claimedAt).toLocaleString(undefined, {
+                                  month: 'short',
+                                  day: 'numeric',
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                })}
+                              </span>
+                            ) : (
+                              <span className="text-gray-400 italic text-[11px]">Legacy / Unknown</span>
+                            )}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                            ${name.amount?.toFixed(2) || '0.00'}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm">
+                            <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold leading-5 
+                              ${name.paymentStatus === 'not_received' ? 'bg-gray-100 text-gray-800' : 
+                                name.paymentStatus === 'received' ? 'bg-blue-100 text-blue-800' : 
+                                name.paymentStatus === 'matured' ? 'bg-green-100 text-green-800' : 
+                                'bg-purple-100 text-purple-800'}`}>
+                              {name.paymentStatus ? name.paymentStatus.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase()) : 'Not Received'}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm">
+                            {name.paymentStatus === 'received' && name.maturityDate ? (
+                              <div className="flex flex-col">
+                                <span className="font-semibold text-blue-700 bg-blue-50 px-2.5 py-0.5 rounded-full border border-blue-200 text-xs w-max">
+                                  {new Date(name.maturityDate).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
+                                </span>
+                                <span className="text-[10px] text-blue-600 font-medium mt-0.5">Maturing</span>
+                              </div>
+                            ) : name.paymentStatus === 'matured' && name.maturityDate ? (
+                              <div className="flex flex-col">
+                                <span className="font-semibold text-green-700 bg-green-50 px-2.5 py-0.5 rounded-full border border-green-200 text-xs w-max">
+                                  {new Date(name.maturityDate).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
+                                </span>
+                                <span className="text-[10px] text-green-600 font-medium mt-0.5">Matured</span>
+                              </div>
+                            ) : name.maturityDate ? (
+                              <span className="text-xs text-gray-600">
+                                {new Date(name.maturityDate).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
+                              </span>
+                            ) : (
+                              <span className="text-gray-400 text-xs">—</span>
+                            )}
+                          </td>
+                          {/* <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
+                            <button
+                              type="button"
+                              onClick={() => setSelectedPayoutNameForLogs(name)}
+                              className="inline-flex items-center space-x-1 px-2.5 py-1 text-xs font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors border border-blue-200 shadow-xs"
+                              title="View Activity Logs & Narration"
+                            >
+                              <DocumentTextIcon className="w-3.5 h-3.5" />
+                              <span>Logs</span>
+                            </button>
+                          </td> */}
+                        </tr>
+                      ))}
+                    </React.Fragment>
                   ))
                 )}
               </tbody>
@@ -430,6 +639,11 @@ export default function PayoutNames() {
                           }`}>
                             {req.status.charAt(0).toUpperCase() + req.status.slice(1)}
                           </span>
+                          {req.isSelfAllocated && (
+                            <span className="ml-1.5 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-800 border border-blue-200" title={req.adminNote}>
+                              ⚡ Auto
+                            </span>
+                          )}
                         </td>
                       </tr>
                     ))
@@ -555,8 +769,32 @@ export default function PayoutNames() {
       {showRequestModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6">
-            <h2 className="text-xl font-bold mb-4">Request Payout Names</h2>
+            <h2 className="text-xl font-bold mb-2">Request Payout Names</h2>
             <p className="text-sm text-gray-500 mb-4">Enter the number of names you want to request allocation for.</p>
+
+            {/* Quota Banner */}
+            {quotaInfo && quotaInfo.dailyLimit > 0 ? (
+              <div className="mb-4 p-3.5 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-blue-900 flex items-center gap-1.5">
+                    <BoltIcon className="w-4 h-4 text-blue-600" />
+                    Daily Self-Allocation Quota
+                  </span>
+                  <span className="bg-blue-600 text-white font-mono text-[11px] font-bold px-2 py-0.5 rounded-full shadow-xs">
+                    {quotaInfo.remainingToday} remaining today
+                  </span>
+                </div>
+                <p className="text-xs text-blue-700 leading-relaxed">
+                  Your daily quota: <strong>{quotaInfo.dailyLimit} names/day</strong> ({quotaInfo.usedToday} used today).
+                  Requests up to <strong>{quotaInfo.remainingToday}</strong> will be <strong>self-allocated immediately</strong>! Any excess will be queued for Admin approval.
+                </p>
+              </div>
+            ) : quotaInfo ? (
+              <div className="mb-4 p-3 bg-gray-50 border border-gray-200 rounded-xl text-xs text-gray-600">
+                ℹ️ All requests are submitted directly to the Admin for approval.
+              </div>
+            ) : null}
+
             <form onSubmit={handleSubmit((d) => requestAllocation(d))} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium">Quantity Requested <span className="text-red-500">*</span></label>
@@ -627,6 +865,13 @@ export default function PayoutNames() {
           </div>
         </div>
       )}
+
+      <PayoutNameLogsModal
+        isOpen={!!selectedPayoutNameForLogs}
+        onClose={() => setSelectedPayoutNameForLogs(null)}
+        payoutNameId={selectedPayoutNameForLogs?._id}
+        payoutNameTitle={selectedPayoutNameForLogs?.name}
+      />
     </div>
   );
 }

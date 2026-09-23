@@ -22,6 +22,7 @@ function UpdateUserModal({ isOpen, onClose, client }) {
       feePercentage: client?.feePercentage || 0,
       usdBuyPrice: client?.usdBuyPrice || 0,
       usdSellPrice: client?.usdSellPrice || 0,
+      dailySelfAllocationLimit: client?.dailySelfAllocationLimit || 0,
       profile: {
         firstName: client?.profile?.firstName || "",
         lastName: client?.profile?.lastName || "",
@@ -31,6 +32,27 @@ function UpdateUserModal({ isOpen, onClose, client }) {
       telegramUsername: client?.telegramUsername || "",
     },
   });
+
+  React.useEffect(() => {
+    if (client && isOpen) {
+      reset({
+        email: client?.email || "",
+        role: client?.role || "client",
+        isActive: client?.isActive ?? true,
+        feePercentage: client?.feePercentage || 0,
+        usdBuyPrice: client?.usdBuyPrice || 0,
+        usdSellPrice: client?.usdSellPrice || 0,
+        dailySelfAllocationLimit: client?.dailySelfAllocationLimit || 0,
+        profile: {
+          firstName: client?.profile?.firstName || "",
+          lastName: client?.profile?.lastName || "",
+          phone: client?.profile?.phone || "",
+          company: client?.profile?.company || "",
+        },
+        telegramUsername: client?.telegramUsername || "",
+      });
+    }
+  }, [client, isOpen, reset]);
 
   // Update user mutation
   const updateUserMutation = useMutation({
@@ -64,6 +86,7 @@ function UpdateUserModal({ isOpen, onClose, client }) {
         feePercentage: Number(data?.feePercentage) || 0,
         usdBuyPrice: Number(data?.usdBuyPrice) || 0,
         usdSellPrice: Number(data?.usdSellPrice) || 0,
+        dailySelfAllocationLimit: Number(data?.dailySelfAllocationLimit) || 0,
         telegramUsername: data?.telegramUsername?.trim() || "",
       };
 
@@ -254,6 +277,34 @@ function UpdateUserModal({ isOpen, onClose, client }) {
                   </div>
                 )}
               </div>
+            </div>
+
+            <div className="mt-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Daily Self-Allocation Limit (Names / Day)
+              </label>
+              <input
+                type="number"
+                step="1"
+                min="0"
+                {...register("dailySelfAllocationLimit", {
+                  valueAsNumber: true,
+                  min: { value: 0, message: "Cannot be less than 0" }
+                })}
+                className={`w-full px-4 py-3 border rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-200 ${
+                  errors?.dailySelfAllocationLimit ? "border-red-300" : "border-gray-300"
+                }`}
+                placeholder="e.g. 10 (0 for manual admin approval only)"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Maximum payout names this client can self-allocate per calendar day without waiting for admin approval. Set to 0 to require admin approval for all requests.
+              </p>
+              {errors?.dailySelfAllocationLimit && (
+                <div className="mt-2 flex items-center text-sm text-red-600">
+                  <ExclamationCircleIcon className="h-4 w-4 mr-1" />
+                  {errors.dailySelfAllocationLimit.message}
+                </div>
+              )}
             </div>
           </div>
 

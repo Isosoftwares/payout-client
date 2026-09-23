@@ -238,6 +238,11 @@ export default function AdminAllocationRequests() {
                                   'bg-yellow-100 text-yellow-800'}`}>
                                 {item.status.charAt(0).toUpperCase() + item.status.slice(1)}
                               </span>
+                              {item.isSelfAllocated && (
+                                <span className="ml-1.5 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-100 text-blue-800 border border-blue-200" title={item.adminNote || "Self-allocated via daily quota"}>
+                                  ⚡ Auto
+                                </span>
+                              )}
                             </td>
                             <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
                               {new Date(item.createdAt).toLocaleDateString()}

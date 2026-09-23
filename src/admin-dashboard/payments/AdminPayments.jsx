@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import useAxiosPrivate from '../../hooks/useAxiosPrivate';
 import { toast } from 'react-toastify';
-import { ArrowUpTrayIcon, Cog6ToothIcon, CheckCircleIcon } from '@heroicons/react/24/outline';
+import { ArrowUpTrayIcon, ArrowDownTrayIcon, Cog6ToothIcon, CheckCircleIcon } from '@heroicons/react/24/outline';
 
 export default function AdminPayments() {
   const axios = useAxiosPrivate();
@@ -44,8 +44,8 @@ export default function AdminPayments() {
       setFile(null);
       document.getElementById('csv-upload').value = '';
       
-      if (res.data.errors && res.data.errors.length > 0 && res.data.historyId) {
-        // Automatically trigger download or offer it
+      if (res.data.historyId) {
+        // Automatically download full report or offer it
         handleDownloadReport(res.data.historyId);
       }
     },
@@ -82,7 +82,7 @@ export default function AdminPayments() {
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement('a');
       link.href = url;
-      link.setAttribute('download', `upload_errors_${historyId}.csv`);
+      link.setAttribute('download', `payment_upload_report_${historyId}.csv`);
       document.body.appendChild(link);
       link.click();
       link.parentNode.removeChild(link);
@@ -220,9 +220,21 @@ export default function AdminPayments() {
 
         {uploadReport && (
           <div className="mt-6 p-4 rounded-xl bg-gray-50 border border-gray-200">
-            <div className="flex items-center gap-2 mb-2">
-              <CheckCircleIcon className="h-5 w-5 text-green-500" />
-              <h3 className="font-semibold text-gray-900">Upload Report</h3>
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <CheckCircleIcon className="h-5 w-5 text-green-500" />
+                <h3 className="font-semibold text-gray-900">Upload Report</h3>
+              </div>
+              {uploadReport.historyId && (
+                <button
+                  type="button"
+                  onClick={() => handleDownloadReport(uploadReport.historyId)}
+                  className="inline-flex items-center space-x-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg shadow-sm transition-colors"
+                >
+                  <ArrowDownTrayIcon className="w-4 h-4" />
+                  <span>Download Full Report CSV</span>
+                </button>
+              )}
             </div>
             <p className="text-sm text-gray-700 mb-2">{uploadReport.message}</p>
             
@@ -285,16 +297,13 @@ export default function AdminPayments() {
                       {history.errors?.length || 0}
                     </td>
                     <td className="px-4 py-3 text-sm font-medium whitespace-nowrap">
-                      {history.errors && history.errors.length > 0 ? (
-                        <button
-                          onClick={() => handleDownloadReport(history._id)}
-                          className="text-blue-600 hover:text-blue-900 font-medium"
-                        >
-                          Download Report
-                        </button>
-                      ) : (
-                        <span className="text-gray-400">No Errors</span>
-                      )}
+                      <button
+                        onClick={() => handleDownloadReport(history._id)}
+                        className="inline-flex items-center space-x-1.5 px-2.5 py-1 text-xs font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-md border border-blue-200 transition-colors"
+                      >
+                        <ArrowDownTrayIcon className="w-3.5 h-3.5" />
+                        <span>Download CSV</span>
+                      </button>
                     </td>
                   </tr>
                 ))

@@ -8,6 +8,7 @@ import DeleteUserModal from "./DeleteUserModal";
 import DirectClaimModal from "./DirectClaimModal";
 import CreateSpecificNameModal from "./CreateSpecificNameModal";
 import CreateSubaccountModal from "./CreateSubaccountModal";
+import UploadBacklogModal from "./UploadBacklogModal";
 import ClientPayoutNamesTab from "./ClientPayoutNamesTab";
 import ClientSubaccountsTab from "./ClientSubaccountsTab";
 import {
@@ -54,6 +55,7 @@ function ClientDetails() {
   const [showDirectClaimModal, setShowDirectClaimModal] = useState(false);
   const [showCreateSpecificModal, setShowCreateSpecificModal] = useState(false);
   const [showCreateSubaccountModal, setShowCreateSubaccountModal] = useState(false);
+  const [showUploadBacklogModal, setShowUploadBacklogModal] = useState(false);
   const [activeTab, setActiveTab] = useState("payout-names");
   const [assignCount, setAssignCount] = useState(1);
   const [unassignCount, setUnassignCount] = useState(1);
@@ -419,6 +421,26 @@ function ClientDetails() {
                   </div>
 
                   <div className="flex items-center space-x-3">
+                    <BoltIcon className="h-5 w-5 text-blue-500" />
+                    <div>
+                      <div className="text-sm font-medium text-gray-500">
+                        Daily Self-Allocation Limit
+                      </div>
+                      <div className="text-gray-900 font-semibold flex items-center gap-1.5 mt-0.5">
+                        {client?.dailySelfAllocationLimit > 0 ? (
+                          <span className="text-blue-700 bg-blue-50 px-2.5 py-0.5 rounded-full text-xs font-bold border border-blue-200">
+                            ⚡ {client.dailySelfAllocationLimit} names / day
+                          </span>
+                        ) : (
+                          <span className="text-gray-500 text-xs">
+                            None (Manual Admin Approval)
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center space-x-3">
                     <svg className="h-5 w-5 text-blue-500 flex-shrink-0" viewBox="0 0 24 24" fill="currentColor">
                       <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69.01-.03.01-.14-.07-.19-.08-.05-.19-.02-.27 0-.12.03-1.99 1.27-5.62 3.72-.53.36-1.01.54-1.44.53-.47-.01-1.38-.27-2.06-.49-.83-.27-1.49-.42-1.43-.88.03-.24.37-.49 1.02-.75 3.98-1.73 6.64-2.87 7.97-3.44 3.79-1.63 4.58-1.91 5.09-1.92.11 0 .37.03.54.17.14.12.18.28.2.45-.01.07.01.21 0 .33z" />
                     </svg>
@@ -732,6 +754,7 @@ function ClientDetails() {
               allocatedCount={allocatedUnclaimedCount}
               onOpenDirectClaim={() => setShowDirectClaimModal(true)}
               onOpenCreateSpecific={() => setShowCreateSpecificModal(true)}
+              onOpenUploadBacklog={() => setShowUploadBacklogModal(true)}
             />
           )}
 
@@ -836,6 +859,17 @@ function ClientDetails() {
             : client?.email
         }
         subaccounts={clientSubaccounts}
+      />
+
+      <UploadBacklogModal
+        isOpen={showUploadBacklogModal}
+        onClose={() => setShowUploadBacklogModal(false)}
+        clientId={_id}
+        clientName={
+          client?.profile?.firstName
+            ? `${client.profile.firstName} ${client.profile.lastName || ""}`.trim()
+            : client?.email
+        }
       />
 
       <CreateSubaccountModal

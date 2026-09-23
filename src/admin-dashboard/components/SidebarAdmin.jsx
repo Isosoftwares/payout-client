@@ -10,6 +10,7 @@ import {
   UserIcon,
   XMarkIcon,
   SparklesIcon,
+  CalendarDaysIcon,
 } from "@heroicons/react/24/outline";
 
 const navigation = [
@@ -18,6 +19,7 @@ const navigation = [
   { name: "Payout Names", href: "/dashboard/payout-names", icon: DocumentPlusIcon, key: "payout-names" },
   { name: "Allocation Requests", href: "/dashboard/allocation-requests", icon: DocumentPlusIcon, key: "allocation-requests" },
   { name: "Payments", href: "/dashboard/payments", icon: SparklesIcon },
+  { name: "Daily Report", href: "/dashboard/daily-report", icon: CalendarDaysIcon },
   { name: "Process Payouts", href: "/dashboard/process-payouts", icon: SparklesIcon },
   { name: "Fee Ledger", href: "/dashboard/fee-ledger", icon: SparklesIcon },
   { name: "Profile", href: "/dashboard/profile", icon: UserIcon },

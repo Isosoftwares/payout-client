@@ -11,11 +11,13 @@ import {
   UserIcon,
   XMarkIcon,
   SparklesIcon,
+  CalendarDaysIcon,
 } from "@heroicons/react/24/outline";
 
 const navigation = [
   { name: "Dashboard", href: "/client", icon: MagnifyingGlassIcon },
   { name: "Payout Names", href: "/client/payout-names", icon: DocumentTextIcon },
+  { name: "Daily Report", href: "/client/daily-report", icon: CalendarDaysIcon },
   { name: "Transactions", href: "/client/transactions", icon: CreditCardIcon },
   { name: "Payment Methods", href: "/client/payment-methods", icon: CreditCardIcon },
   { name: "Subaccounts", href: "/client/subaccounts", icon: UserIcon },

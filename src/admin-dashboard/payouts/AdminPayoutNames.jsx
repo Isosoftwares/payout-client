@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import useAxiosPrivate from '../../hooks/useAxiosPrivate';
 import { toast } from 'react-toastify';
-import { MagnifyingGlassIcon, ArrowUpTrayIcon, TrashIcon } from '@heroicons/react/24/outline';
+import { MagnifyingGlassIcon, ArrowUpTrayIcon, TrashIcon, DocumentTextIcon } from '@heroicons/react/24/outline';
+import PayoutNameLogsModal from '../../components/PayoutNameLogsModal';
 
 export default function AdminPayoutNames() {
   const axios = useAxiosPrivate();
@@ -10,12 +11,14 @@ export default function AdminPayoutNames() {
 
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [paymentStatusFilter, setPaymentStatusFilter] = useState('all');
   const [file, setFile] = useState(null);
   const [isDragging, setIsDragging] = useState(false);
   const [allocateToClientId, setAllocateToClientId] = useState('');
   const [uploadReport, setUploadReport] = useState(null);
   const [page, setPage] = useState(1);
-  const [limit] = useState(10);
+  const [limit] = useState(100);
+  const [selectedPayoutNameForLogs, setSelectedPayoutNameForLogs] = useState(null);
 
   // Clients for optional pre-allocation dropdown
   const { data: clientsData } = useQuery({
@@ -25,8 +28,8 @@ export default function AdminPayoutNames() {
   const clients = clientsData?.data?.data?.users || [];
 
   const { data: payoutNamesData, isLoading } = useQuery({
-    queryKey: ['admin-payout-names', page, limit, searchTerm, statusFilter],
-    queryFn: () => axios.get(`/payout-names?page=${page}&limit=${limit}&search=${searchTerm}&status=${statusFilter}`),
+    queryKey: ['admin-payout-names', page, limit, searchTerm, statusFilter, paymentStatusFilter],
+    queryFn: () => axios.get(`/payout-names?page=${page}&limit=${limit}&search=${searchTerm}&status=${statusFilter}&paymentStatus=${paymentStatusFilter}`),
     keepPreviousData: true,
     onError: (err) => toast.error(err?.response?.data?.message || 'Failed to load payout names'),
   });
@@ -257,12 +260,25 @@ export default function AdminPayoutNames() {
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="block w-full py-2 px-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="block w-full py-2 px-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium"
           >
-            <option value="all">All Statuses</option>
+            <option value="all">All Allocation Statuses</option>
             <option value="available">Available</option>
             <option value="allocated">Allocated</option>
             <option value="claimed">Claimed</option>
+          </select>
+        </div>
+        <div className="w-full sm:w-48">
+          <select
+            value={paymentStatusFilter}
+            onChange={(e) => setPaymentStatusFilter(e.target.value)}
+            className="block w-full py-2 px-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium bg-white"
+          >
+            <option value="all">All Payment Statuses</option>
+            <option value="received">Received</option>
+            <option value="matured">Matured</option>
+            <option value="paid">Paid</option>
+            <option value="not_received">Not Received</option>
           </select>
         </div>
       </div>
@@ -278,16 +294,18 @@ export default function AdminPayoutNames() {
                     <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Routing Number</th>
                     <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Account Number</th>
                     <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Status / Allocation</th>
+                    <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Claimed Date</th>
                     <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Amount</th>
                     <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Payment Status</th>
+                    <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Maturity Date</th>
                     <th className="relative py-3.5 pl-3 pr-4 sm:pr-6"><span className="sr-only">Actions</span></th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200 bg-white">
                   {isLoading ? (
-                    <tr><td colSpan="7" className="p-4 text-center">Loading...</td></tr>
+                    <tr><td colSpan="9" className="p-4 text-center">Loading...</td></tr>
                   ) : payoutNames.length === 0 ? (
-                    <tr><td colSpan="7" className="p-4 text-center">No names found.</td></tr>
+                    <tr><td colSpan="9" className="p-4 text-center">No names found.</td></tr>
                   ) : (
                     payoutNames.map((item) => (
                       <tr key={item._id}>
@@ -318,6 +336,21 @@ export default function AdminPayoutNames() {
                             </div>
                           )}
                         </td>
+                        <td className="whitespace-nowrap px-3 py-4 text-xs text-gray-600">
+                          {item.claimedAt ? (
+                            <span className="font-medium text-gray-800">
+                              {new Date(item.claimedAt).toLocaleString(undefined, {
+                                month: 'short',
+                                day: 'numeric',
+                                year: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit',
+                              })}
+                            </span>
+                          ) : (
+                            <span className="text-gray-400 italic text-[11px]">Unclaimed / Legacy</span>
+                          )}
+                        </td>
                         <td className="whitespace-nowrap px-3 py-4 text-sm font-medium text-gray-900">
                           ${item.amount?.toFixed(2) || '0.00'}
                         </td>
@@ -330,15 +363,47 @@ export default function AdminPayoutNames() {
                             {item.paymentStatus ? item.paymentStatus.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase()) : 'Not Received'}
                           </span>
                         </td>
+                        <td className="whitespace-nowrap px-3 py-4 text-sm">
+                          {item.paymentStatus === 'received' && item.maturityDate ? (
+                            <div className="flex flex-col">
+                              <span className="font-semibold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200 text-xs w-max">
+                                {new Date(item.maturityDate).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
+                              </span>
+                              <span className="text-[10px] text-blue-600 font-medium mt-0.5">Maturing</span>
+                            </div>
+                          ) : item.paymentStatus === 'matured' && item.maturityDate ? (
+                            <div className="flex flex-col">
+                              <span className="font-semibold text-green-700 bg-green-50 px-2 py-0.5 rounded border border-green-200 text-xs w-max">
+                                {new Date(item.maturityDate).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
+                              </span>
+                              <span className="text-[10px] text-green-600 font-medium mt-0.5">Matured</span>
+                            </div>
+                          ) : item.maturityDate ? (
+                            <span className="text-xs text-gray-600">
+                              {new Date(item.maturityDate).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
+                            </span>
+                          ) : (
+                            <span className="text-gray-400 text-xs">—</span>
+                          )}
+                        </td>
                         <td className="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
-                          <button
-                            onClick={() => handleDelete(item._id)}
-                            disabled={isDeleting || item?.allocatedTo || item?.claimedForSubaccount}
-                            className={`text-red-600 hover:text-red-900 disabled:opacity-50 ${item?.allocatedTo || item?.claimedForSubaccount ? 'cursor-not-allowed' : 'cursor-pointer'}`}
-                            title={item?.allocatedTo || item?.claimedForSubaccount ? "Cannot delete allocated or claimed payout names" : "Delete"}
-                          >
-                            <TrashIcon className="h-5 w-5" />
-                          </button>
+                          <div className="flex items-center justify-end space-x-2">
+                            <button
+                              onClick={() => setSelectedPayoutNameForLogs(item)}
+                              className="p-1.5 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition-colors"
+                              title="View Activity Logs & Narration"
+                            >
+                              <DocumentTextIcon className="h-5 w-5" />
+                            </button>
+                            <button
+                              onClick={() => handleDelete(item._id)}
+                              disabled={isDeleting || item?.allocatedTo || item?.claimedForSubaccount}
+                              className={`text-red-600 hover:text-red-900 disabled:opacity-50 ${item?.allocatedTo || item?.claimedForSubaccount ? 'cursor-not-allowed' : 'cursor-pointer'}`}
+                              title={item?.allocatedTo || item?.claimedForSubaccount ? "Cannot delete allocated or claimed payout names" : "Delete"}
+                            >
+                              <TrashIcon className="h-5 w-5" />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))
@@ -408,6 +473,13 @@ export default function AdminPayoutNames() {
           </div>
         </div>
       </div>
+
+      <PayoutNameLogsModal
+        isOpen={!!selectedPayoutNameForLogs}
+        onClose={() => setSelectedPayoutNameForLogs(null)}
+        payoutNameId={selectedPayoutNameForLogs?._id}
+        payoutNameTitle={selectedPayoutNameForLogs?.name}
+      />
     </div>
   );
 }
