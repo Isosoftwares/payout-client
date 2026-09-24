@@ -182,7 +182,7 @@ export default function ClientPayoutNamesTab({
         ? pn.claimedForSubaccount.username
         : "Main Account (Self)";
       const matDate = pn.maturityDate
-        ? new Date(pn.maturityDate).toLocaleDateString()
+        ? new Date(pn.maturityDate).toISOString().split('T')[0]
         : "N/A";
       const backlogStatus = pn.isBacklog
         ? (pn.paymentStatus === 'not_received' ? 'Backlog (Hidden)' : 'Backlog (Visible)')
@@ -633,20 +633,20 @@ export default function ClientPayoutNamesTab({
                             {pn.paymentStatus === 'received' && pn.maturityDate ? (
                               <div className="flex flex-col">
                                 <span className="font-semibold text-blue-700 bg-blue-50 px-2.5 py-0.5 rounded-full border border-blue-200 text-xs w-max">
-                                  {new Date(pn.maturityDate).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
+                                  {new Date(pn.maturityDate).toLocaleDateString('en-US', { timeZone: 'UTC', year: 'numeric', month: 'short', day: 'numeric' })}
                                 </span>
                                 <span className="text-[10px] text-blue-600 font-medium mt-0.5">Maturing</span>
                               </div>
                             ) : pn.paymentStatus === 'matured' && pn.maturityDate ? (
                               <div className="flex flex-col">
                                 <span className="font-semibold text-green-700 bg-green-50 px-2.5 py-0.5 rounded-full border border-green-200 text-xs w-max">
-                                  {new Date(pn.maturityDate).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
+                                  {new Date(pn.maturityDate).toLocaleDateString('en-US', { timeZone: 'UTC', year: 'numeric', month: 'short', day: 'numeric' })}
                                 </span>
                                 <span className="text-[10px] text-green-600 font-medium mt-0.5">Matured</span>
                               </div>
                             ) : pn.maturityDate ? (
                               <span className="text-xs text-gray-600">
-                                {new Date(pn.maturityDate).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
+                                {new Date(pn.maturityDate).toLocaleDateString('en-US', { timeZone: 'UTC', year: 'numeric', month: 'short', day: 'numeric' })}
                               </span>
                             ) : (
                               <span className="text-gray-400 text-xs">—</span>

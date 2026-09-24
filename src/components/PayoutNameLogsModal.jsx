@@ -339,13 +339,13 @@ export default function PayoutNameLogsModal({ isOpen, onClose, payoutNameId, pay
                           {log.paymentDate && (
                             <span className="flex items-center space-x-1">
                               <CalendarDaysIcon className="w-3.5 h-3.5 text-blue-500" />
-                              <span>Payment Date: <strong className="text-gray-700">{new Date(log.paymentDate).toLocaleDateString()}</strong></span>
+                              <span>Payment Date: <strong className="text-gray-700">{new Date(log.paymentDate).toLocaleDateString('en-US', { timeZone: 'UTC', year: 'numeric', month: 'short', day: 'numeric' })}</strong></span>
                             </span>
                           )}
                           {log.maturityDate && (
                             <span className="flex items-center space-x-1">
                               <CalendarDaysIcon className="w-3.5 h-3.5 text-amber-500" />
-                              <span>Maturity Date: <strong className="text-gray-700">{new Date(log.maturityDate).toLocaleDateString()}</strong></span>
+                              <span>Maturity Date: <strong className="text-gray-700">{new Date(log.maturityDate).toLocaleDateString('en-US', { timeZone: 'UTC', year: 'numeric', month: 'short', day: 'numeric' })}</strong></span>
                             </span>
                           )}
                         </div>

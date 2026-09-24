@@ -367,20 +367,20 @@ export default function AdminPayoutNames() {
                           {item.paymentStatus === 'received' && item.maturityDate ? (
                             <div className="flex flex-col">
                               <span className="font-semibold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200 text-xs w-max">
-                                {new Date(item.maturityDate).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
+                                {new Date(item.maturityDate).toLocaleDateString('en-US', { timeZone: 'UTC', year: 'numeric', month: 'short', day: 'numeric' })}
                               </span>
                               <span className="text-[10px] text-blue-600 font-medium mt-0.5">Maturing</span>
                             </div>
                           ) : item.paymentStatus === 'matured' && item.maturityDate ? (
                             <div className="flex flex-col">
                               <span className="font-semibold text-green-700 bg-green-50 px-2 py-0.5 rounded border border-green-200 text-xs w-max">
-                                {new Date(item.maturityDate).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
+                                {new Date(item.maturityDate).toLocaleDateString('en-US', { timeZone: 'UTC', year: 'numeric', month: 'short', day: 'numeric' })}
                               </span>
                               <span className="text-[10px] text-green-600 font-medium mt-0.5">Matured</span>
                             </div>
                           ) : item.maturityDate ? (
                             <span className="text-xs text-gray-600">
-                              {new Date(item.maturityDate).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
+                              {new Date(item.maturityDate).toLocaleDateString('en-US', { timeZone: 'UTC', year: 'numeric', month: 'short', day: 'numeric' })}
                             </span>
                           ) : (
                             <span className="text-gray-400 text-xs">—</span>

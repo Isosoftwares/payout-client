@@ -114,8 +114,13 @@ export default function DailyReportView({ isAdmin = false }) {
         const subaccount = item.claimedForSubaccount?.username || 'Self';
         const amount = item.amount ? item.amount.toFixed(2) : '0.00';
         const status = item.paymentStatus || 'not_received';
-        const receivedDate = item.paymentReceivedDate ? new Date(item.paymentReceivedDate).toISOString().split('T')[0] : '';
-        const maturityDate = item.maturityDate ? new Date(item.maturityDate).toISOString().split('T')[0] : '';
+        const formatISODate = (val) => {
+          if (!val) return '';
+          const d = new Date(val);
+          return isNaN(d.getTime()) ? '' : d.toISOString().split('T')[0];
+        };
+        const receivedDate = formatISODate(item.paymentReceivedDate);
+        const maturityDate = formatISODate(item.maturityDate);
 
         const escapeCSV = (val) => {
           const str = String(val ?? '');
@@ -162,8 +167,12 @@ export default function DailyReportView({ isAdmin = false }) {
   const formatDateDisplay = (dateStr) => {
     if (!dateStr) return '—';
     try {
-      const d = new Date(dateStr);
-      return d.toLocaleDateString(undefined, {
+      const d = typeof dateStr === 'string' && dateStr.length === 10 && dateStr.includes('-')
+        ? new Date(`${dateStr}T00:00:00Z`)
+        : new Date(dateStr);
+      if (isNaN(d.getTime())) return dateStr;
+      return d.toLocaleDateString('en-US', {
+        timeZone: 'UTC',
         year: 'numeric',
         month: 'short',
         day: 'numeric',

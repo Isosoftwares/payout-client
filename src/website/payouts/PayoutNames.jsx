@@ -217,7 +217,7 @@ export default function PayoutNames() {
       name.claimedAt ? new Date(name.claimedAt).toLocaleString() : 'Unknown',
       name.amount || 0,
       name.paymentStatus || 'not_received',
-      name.maturityDate ? new Date(name.maturityDate).toLocaleDateString() : 'N/A'
+      name.maturityDate ? new Date(name.maturityDate).toISOString().split('T')[0] : 'N/A'
     ]);
 
     const csvContent = [
@@ -479,20 +479,20 @@ export default function PayoutNames() {
                             {name.paymentStatus === 'received' && name.maturityDate ? (
                               <div className="flex flex-col">
                                 <span className="font-semibold text-blue-700 bg-blue-50 px-2.5 py-0.5 rounded-full border border-blue-200 text-xs w-max">
-                                  {new Date(name.maturityDate).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
+                                  {new Date(name.maturityDate).toLocaleDateString('en-US', { timeZone: 'UTC', year: 'numeric', month: 'short', day: 'numeric' })}
                                 </span>
                                 <span className="text-[10px] text-blue-600 font-medium mt-0.5">Maturing</span>
                               </div>
                             ) : name.paymentStatus === 'matured' && name.maturityDate ? (
                               <div className="flex flex-col">
                                 <span className="font-semibold text-green-700 bg-green-50 px-2.5 py-0.5 rounded-full border border-green-200 text-xs w-max">
-                                  {new Date(name.maturityDate).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
+                                  {new Date(name.maturityDate).toLocaleDateString('en-US', { timeZone: 'UTC', year: 'numeric', month: 'short', day: 'numeric' })}
                                 </span>
                                 <span className="text-[10px] text-green-600 font-medium mt-0.5">Matured</span>
                               </div>
                             ) : name.maturityDate ? (
                               <span className="text-xs text-gray-600">
-                                {new Date(name.maturityDate).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
+                                {new Date(name.maturityDate).toLocaleDateString('en-US', { timeZone: 'UTC', year: 'numeric', month: 'short', day: 'numeric' })}
                               </span>
                             ) : (
                               <span className="text-gray-400 text-xs">—</span>

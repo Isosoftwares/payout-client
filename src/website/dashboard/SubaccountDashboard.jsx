@@ -100,7 +100,7 @@ export default function SubaccountDashboard() {
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {name.maturityDate ? new Date(name.maturityDate).toLocaleDateString() : 'N/A'}
+                        {name.maturityDate ? new Date(name.maturityDate).toLocaleDateString('en-US', { timeZone: 'UTC', year: 'numeric', month: 'short', day: 'numeric' }) : 'N/A'}
                       </td>
                     </tr>
                   ))

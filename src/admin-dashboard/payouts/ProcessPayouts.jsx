@@ -297,7 +297,7 @@ export default function ProcessPayouts() {
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{name.name}</td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 font-mono">{name.accountNumber}</td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-semibold">${name.amount?.toFixed(2)}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{new Date(name.maturityDate).toLocaleDateString()}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{new Date(name.maturityDate).toLocaleDateString('en-US', { timeZone: 'UTC', year: 'numeric', month: 'short', day: 'numeric' })}</td>
                         </tr>
                       ))
                     )}
