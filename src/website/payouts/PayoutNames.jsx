@@ -209,23 +209,37 @@ export default function PayoutNames() {
       'Maturity Date'
     ];
 
+    const formatTextCell = (val) => {
+      if (val === null || val === undefined) return '';
+      const str = String(val).trim();
+      if (!str) return '';
+      return `="` + str.replace(/"/g, '""') + `"`;
+    };
+
+    const escapeCSV = (val) => {
+      const str = String(val ?? '');
+      return str.includes(',') || str.includes('"') || str.includes('\n')
+        ? `"${str.replace(/"/g, '""')}"`
+        : str;
+    };
+
     const rows = namesToDownload.map((name) => [
-      name.name || '',
-      name.accountNumber || '',
-      name.routingNumber || '',
-      name.claimedForSubaccount ? (name.claimedForSubaccount.username || 'Subaccount') : 'Self',
-      name.claimedAt ? new Date(name.claimedAt).toLocaleString() : 'Unknown',
-      name.amount || 0,
-      name.paymentStatus || 'not_received',
-      name.maturityDate ? new Date(name.maturityDate).toISOString().split('T')[0] : 'N/A'
+      escapeCSV(name.name || ''),
+      formatTextCell(name.accountNumber),
+      formatTextCell(name.routingNumber),
+      escapeCSV(name.claimedForSubaccount ? (name.claimedForSubaccount.username || 'Subaccount') : 'Self'),
+      escapeCSV(name.claimedAt ? new Date(name.claimedAt).toLocaleString() : 'Unknown'),
+      escapeCSV(name.amount || 0),
+      escapeCSV(name.paymentStatus || 'not_received'),
+      escapeCSV(name.maturityDate ? new Date(name.maturityDate).toLocaleDateString('en-CA', { timeZone: 'UTC' }) : 'N/A')
     ]);
 
     const csvContent = [
       headers.join(','),
-      ...rows.map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+      ...rows.map((row) => row.join(','))
     ].join('\n');
 
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.setAttribute('href', url);

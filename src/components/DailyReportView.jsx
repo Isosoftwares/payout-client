@@ -122,6 +122,13 @@ export default function DailyReportView({ isAdmin = false }) {
         const receivedDate = formatISODate(item.paymentReceivedDate);
         const maturityDate = formatISODate(item.maturityDate);
 
+        const formatTextCell = (val) => {
+          if (val === null || val === undefined) return '';
+          const str = String(val).trim();
+          if (!str) return '';
+          return `="` + str.replace(/"/g, '""') + `"`;
+        };
+
         const escapeCSV = (val) => {
           const str = String(val ?? '');
           return str.includes(',') || str.includes('"') || str.includes('\n')
@@ -131,8 +138,8 @@ export default function DailyReportView({ isAdmin = false }) {
 
         const row = [
           escapeCSV(item.name),
-          escapeCSV(item.routingNumber),
-          escapeCSV(item.accountNumber),
+          formatTextCell(item.routingNumber),
+          formatTextCell(item.accountNumber),
           ...(isAdmin ? [escapeCSV(clientName), escapeCSV(clientEmail)] : []),
           escapeCSV(subaccount),
           escapeCSV(amount),
@@ -145,7 +152,7 @@ export default function DailyReportView({ isAdmin = false }) {
       });
 
       const csvContent = [headers.join(','), ...rows].join('\n');
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.setAttribute('hidden', '');

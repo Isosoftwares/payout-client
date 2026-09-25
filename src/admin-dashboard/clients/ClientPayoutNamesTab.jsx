@@ -177,12 +177,26 @@ export default function ClientPayoutNamesTab({
       "Maturity Date",
     ];
 
+    const formatTextCell = (val) => {
+      if (val === null || val === undefined) return '';
+      const str = String(val).trim();
+      if (!str) return '';
+      return `="` + str.replace(/"/g, '""') + `"`;
+    };
+
+    const escapeCSV = (val) => {
+      const str = String(val ?? '');
+      return str.includes(',') || str.includes('"') || str.includes('\n')
+        ? `"${str.replace(/"/g, '""')}"`
+        : str;
+    };
+
     const rows = namesToExport.map((pn) => {
       const subLabel = pn.claimedForSubaccount?.username
         ? pn.claimedForSubaccount.username
         : "Main Account (Self)";
       const matDate = pn.maturityDate
-        ? new Date(pn.maturityDate).toISOString().split('T')[0]
+        ? new Date(pn.maturityDate).toLocaleDateString('en-CA', { timeZone: 'UTC' })
         : "N/A";
       const backlogStatus = pn.isBacklog
         ? (pn.paymentStatus === 'not_received' ? 'Backlog (Hidden)' : 'Backlog (Visible)')
@@ -191,27 +205,22 @@ export default function ClientPayoutNamesTab({
         ? new Date(pn.claimedAt).toLocaleString()
         : "Unknown / Legacy";
       return [
-        pn.name || "",
-        pn.accountNumber || "",
-        pn.routingNumber || "",
-        pn.status || "",
-        backlogStatus,
-        subLabel,
-        claimDate,
-        (pn.amount || 0).toFixed(2),
-        pn.paymentStatus || "not_received",
-        matDate,
-      ];
+        escapeCSV(pn.name || ""),
+        formatTextCell(pn.accountNumber),
+        formatTextCell(pn.routingNumber),
+        escapeCSV(pn.status || ""),
+        escapeCSV(backlogStatus),
+        escapeCSV(subLabel),
+        escapeCSV(claimDate),
+        escapeCSV((pn.amount || 0).toFixed(2)),
+        escapeCSV(pn.paymentStatus || "not_received"),
+        escapeCSV(matDate),
+      ].join(",");
     });
 
-    const csvContent = [
-      headers.join(","),
-      ...rows.map((row) =>
-        row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(",")
-      ),
-    ].join("\n");
+    const csvContent = [headers.join(","), ...rows].join("\n");
 
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const blob = new Blob(["\uFEFF" + csvContent], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     const safeName = (clientName || "client").toLowerCase().replace(/[^a-z0-9]/g, "_");
