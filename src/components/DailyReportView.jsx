@@ -107,7 +107,9 @@ export default function DailyReportView({ isAdmin = false }) {
       ];
 
       const rows = allRecords.map((item) => {
-        const clientName = item.allocatedTo?.profile?.companyName ||
+        const clientName =
+          item.allocatedTo?.profile?.company ||
+          item.allocatedTo?.profile?.companyName ||
           [item.allocatedTo?.profile?.firstName, item.allocatedTo?.profile?.lastName].filter(Boolean).join(' ') ||
           '';
         const clientEmail = item.allocatedTo?.email || '';
@@ -299,9 +301,11 @@ export default function DailyReportView({ isAdmin = false }) {
                 >
                   <option value="all">All Clients</option>
                   {clients.map((c) => {
-                    const label = c.profile?.companyName
-                      ? `${c.profile.companyName} (${c.email})`
-                      : c.email;
+                    const clientName =
+                      c.profile?.company ||
+                      c.profile?.companyName ||
+                      [c.profile?.firstName, c.profile?.lastName].filter(Boolean).join(' ');
+                    const label = clientName ? `${clientName} (${c.email})` : c.email;
                     return (
                       <option key={c._id} value={c._id}>
                         {label}
@@ -504,7 +508,8 @@ export default function DailyReportView({ isAdmin = false }) {
                           {item.allocatedTo ? (
                             <div>
                               <p className="font-medium text-gray-800">
-                                {item.allocatedTo.profile?.companyName ||
+                                {item.allocatedTo.profile?.company ||
+                                  item.allocatedTo.profile?.companyName ||
                                   [item.allocatedTo.profile?.firstName, item.allocatedTo.profile?.lastName]
                                     .filter(Boolean)
                                     .join(' ') ||
